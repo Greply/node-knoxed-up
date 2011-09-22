@@ -1,0 +1,18 @@
+{
+    "author": "Mark Armendariz <src@enobrev.com> (http://enobrev.com/)",
+    "name": "knoxed-up",
+    "main": "index",
+    "description": "Knox (S3 Librar) wrapper to simplify a few things",
+    "version": "0.0.1",
+    "homepage": "http://enobrev.com/",
+    "repository": {
+        "type": "git",
+        "url": "http://github.com/enobrev/node-knoxed-up.git"
+    },
+    "main" : "./knoxed-up",
+    "dependencies": {
+        "canvas": ">=0.0.9",
+        "temp": ">=0.2.0"
+    }
+
+}
