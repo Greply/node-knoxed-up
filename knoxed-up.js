@@ -8,6 +8,12 @@
 
     module.exports = KnoxedUp;
 
+    /**
+     *
+     * @param string   sPrefix   Path of folder to list
+     * @param function fCallback Array of Objects in that folder
+     * @param function fError
+     */
     KnoxedUp.prototype.getFileList = function(sPrefix, fCallback, fError) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
         fError    = typeof fError    == 'function' ? fError     : function() {};
@@ -37,6 +43,11 @@
         }).end();
     };
 
+    /**
+     *
+     * @param string   sFile     Path to File
+     * @param function fCallback Full contents of File
+     */
     KnoxedUp.prototype.getFile = function(sFile, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
@@ -53,6 +64,38 @@
         }).end();
     };
 
+    /**
+     *
+     * @param array    aFiles    - Array of filenames to retrieve
+     * @param function fCallback - Contents object with filename as key and file contents as value
+     */
+    KnoxedUp.prototype.getFiles = function(aFiles, fCallback) {
+        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
+
+        var oContents = {};
+        var iContents = 0;
+        var iFiles    = aFiles.length;
+        if (iFiles) {
+            for (var i in aFiles) {
+                var sFile = aFiles[i];
+                this.getFile(sFile, function(sContents) {
+                    iContents++;
+                    oContents[sFile] = sContents;
+
+                    if (iContents >= iFiles) {
+                        fCallback(oContents);
+                    }
+                })
+            }
+        }
+    };
+
+    /**
+     *
+     * @param string   sFrom     Path of File to Move
+     * @param string   sTo       Destination Path of File
+     * @param function fCallback
+     */
     KnoxedUp.prototype.moveFile = function(sFrom, sTo, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
         
@@ -74,6 +117,12 @@
         }).end();
     };
 
+    /**
+     *
+     * @param string   sFile     Path to File to Download
+     * @param string   sType     Binary or (?)
+     * @param function fCallback - Path of Temp File
+     */
     KnoxedUp.prototype.toTemp = function(sFile, sType, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
@@ -97,4 +146,31 @@
                     });
                 });
         });
+    };
+
+    /**
+     *
+     * @param array    aFiles    Array if file paths to download to temp
+     * @param string   sType     Binary or (?)
+     * @param function fCallback Object of Temp Files with S3 file names as Key
+     */
+    KnoxedUp.prototype.filesToTemp = function(aFiles, sType, fCallback) {
+        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
+
+        var oTempFiles = {};
+        var iTempFiles = 0;
+        var iFiles     = aFiles.length;
+        if (iFiles) {
+            for (var i in aFiles) {
+                var sFile = aFiles[i];
+                this.toTemp(sFile, sType, function(sTempFile) {
+                    iTempFiles++;
+                    oTempFiles[sFile] = sTempFile;
+
+                    if (iTempFiles >= iFiles) {
+                        fCallback(oTempFiles);
+                    }
+                })
+            }
+        }
     };
