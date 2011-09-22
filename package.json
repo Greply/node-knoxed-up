@@ -11,7 +11,8 @@
     "main" : "./knoxed-up",
     "dependencies": {
         "canvas": ">=0.0.9",
-        "temp": ">=0.2.0"
+        "temp": ">=0.2.0",
+        "toolbox": ">=0.0.1"
     }
 
 }

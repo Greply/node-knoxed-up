@@ -1,9 +1,10 @@
     var fs          = require('fs');
     var temp        = require('temp');
     var Knox        = require('knox');
+    var toolbox     = require('toolbox');
 
     var KnoxedUp = function(config) {
-        this.oClient = Knox.createClient(config);
+        this.Client = Knox.createClient(config);
     };
 
     module.exports = KnoxedUp;
@@ -18,7 +19,7 @@
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
         fError    = typeof fError    == 'function' ? fError     : function() {};
 
-        this.oClient.get('/?prefix=' + sPrefix).on('response', function(oResponse) {
+        this.Client.get('/?prefix=' + sPrefix).on('response', function(oResponse) {
             oResponse.setEncoding('utf8');
             oResponse.on('data', function(oChunk){
                 parser(oChunk, function (oError, oResult) {
@@ -51,7 +52,7 @@
     KnoxedUp.prototype.getFile = function(sFile, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
-        this.oClient.get(sFile).on('response', function(oResponse) {
+        this.Client.get(sFile).on('response', function(oResponse) {
             var sContents = '';
             oResponse.setEncoding('utf8');
             oResponse
@@ -96,25 +97,36 @@
      * @param string   sTo       Destination Path of File
      * @param function fCallback
      */
-    KnoxedUp.prototype.moveFile = function(sFrom, sTo, fCallback) {
+    KnoxedUp.prototype.copyFile = function(sFrom, sTo, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
-        
+
         var oOptions = {
             'Content-Length': '0',
-            'x-amz-copy-source': '/' + this.oClient.bucket + '/' + sFrom,
+            'x-amz-copy-source': '/' + this.Client.bucket + '/' + sFrom,
             'x-amz-metadata-directive': 'COPY'
         };
 
-        this.oClient.put(sTo, oOptions).on('response', function(oResponse) {
-            console.log(oResponse.statusCode);
-            console.log(oResponse.headers);
+        this.Client.put(sTo, oOptions).on('response', function(oResponse) {
             oResponse.setEncoding('utf8');
             oResponse.on('data', function(oChunk){
-                console.log(oChunk);
-                this.oClient.del(sFrom).end();
                 fCallback(oChunk);
             });
         }).end();
+    };
+
+    /**
+     *
+     * @param string   sFrom     Path of File to Move
+     * @param string   sTo       Destination Path of File
+     * @param function fCallback
+     */
+    KnoxedUp.prototype.moveFile = function(sFrom, sTo, fCallback) {
+        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
+
+        this.copyFile(sFrom, sTo, function(oChunk) {
+            this.Client.del(sFrom).end();
+            fCallback(oChunk);
+        });
     };
 
     /**
@@ -127,24 +139,21 @@
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
         var sType     = sType || 'binary';
-        var sTempFile = temp.path();
         var sContents = '';
 
-        this.oClient.getFile(sFile, function(error, oResponse) {
-            oResponse.setEncoding(sType);
-            oResponse
-                .on('data', function(sChunk) {
-                    this.sContents += sChunk;
-                })
-                .on('end',  function() {
-                    fs.writeFile(sTempFile, sContents, sType, function(oError) {
-                        fs.chmod(sTempFile, '777', function() {
-                            fs.chown(sTempFile, 1000, 1000, function() {
-                                fCallback(sTempFile);
-                            });
+        temp.open('knox', function(oError, oTempFile) {
+            this.Client.getFile(sFile, function(error, oResponse) {
+                oResponse.setEncoding(sType);
+                oResponse
+                    .on('data', function(sChunk) {
+                        this.sContents += sChunk;
+                    })
+                    .on('end',  function() {
+                        fs.writeFile(oTempFile.fd, sContents, sType, function(oError) {
+                            fCallback(oTempFile.path);
                         });
                     });
-                });
+            });
         });
     };
 
