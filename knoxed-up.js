@@ -141,20 +141,20 @@
         var sType     = sType || 'binary';
         var sContents = '';
 
-        temp.open('knox', function(oError, oTempFile) {
+        temp.open('knoxed-', function(oError, oTempFile) {
             this.Client.getFile(sFile, function(error, oResponse) {
                 oResponse.setEncoding(sType);
                 oResponse
                     .on('data', function(sChunk) {
-                        this.sContents += sChunk;
+                        sContents += sChunk;
                     })
                     .on('end',  function() {
-                        fs.writeFile(oTempFile.fd, sContents, sType, function(oError) {
+                        fs.writeFile(oTempFile.path, sContents, sType, function(oError) {
                             fCallback(oTempFile.path);
                         });
                     });
             });
-        });
+        }.bind(this));
     };
 
     /**
