@@ -135,13 +135,16 @@
      * @param string   sType     Binary or (?)
      * @param function fCallback - Path of Temp File
      */
-    KnoxedUp.prototype.toTemp = function(sFile, sType, fCallback) {
+    KnoxedUp.prototype.toTemp = function(sFile, sType, fCallback, oSettings) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
-        var sType     = sType || 'binary';
         var sContents = '';
+        var sType     = sType || 'binary';
+        var oSettings = oSettings || {
+            prefix: 'knoxed-'
+        };
 
-        temp.open('knoxed-', function(oError, oTempFile) {
+        temp.open(oSettings, function(oError, oTempFile) {
             this.Client.getFile(sFile, function(error, oResponse) {
                 oResponse.setEncoding(sType);
                 oResponse
