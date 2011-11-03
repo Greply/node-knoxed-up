@@ -2,6 +2,7 @@
     var temp        = require('temp');
     var Knox        = require('knox');
     var toolbox     = require('toolbox');
+    var Buffer      = require('buffer').Buffer;
 
     var KnoxedUp = function(config) {
         this.Client = Knox.createClient(config);
@@ -63,6 +64,37 @@
                     fCallback(sContents);
                 });
         }).end();
+    };
+
+    /**
+     *
+     * @param string   sFile     Path to File
+     * @param string   sType     ascii, utf8, ics2, base64, binary
+     * @param function fCallback Buffer containing full contents of File
+     */
+    KnoxedUp.prototype.getFileBuffer = function(sFile, sType, fDoneCallback, fBufferCallback) {
+        fDoneCallback   = typeof fDoneCallback   == 'function' ? fDoneCallback    : function() {};
+        fBufferCallback = typeof fBufferCallback == 'function' ? fBufferCallback  : function() {};
+        sType           = sType || 'utf8';
+
+        var oRequest = this.Client.get(sFile);
+        oRequest.on('response', function(oResponse) {
+            var oBuffer  = new Buffer(parseInt(oResponse.headers['content-length'], 10));
+            var iBuffer  = 0;
+            var iWritten = 0;
+            oResponse.setEncoding(sType);
+            oResponse
+                .on('data', function(sChunk){
+                    iWritten = oBuffer.write(sChunk, iBuffer, sType);
+                    iBuffer += iWritten;
+                    fBufferCallback(oBuffer, iBuffer, iWritten);
+                })
+                .on('end', function(){
+                    fDoneCallback(oBuffer);
+                });
+        }).end();
+
+        return oRequest;
     };
 
     /**
@@ -135,27 +167,29 @@
      * @param string   sType     Binary or (?)
      * @param function fCallback - Path of Temp File
      */
-    KnoxedUp.prototype.toTemp = function(sFile, sType, fCallback, oSettings) {
-        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
-
-        var sContents = '';
-        var sType     = sType || 'binary';
-        var oSettings = oSettings || {
-            prefix: 'knoxed-'
-        };
+    KnoxedUp.prototype.toTemp = function(sFile, sType, oSettings, fCallback, fBufferCallback) {
+        sType = sType || 'binary';
+        
+        if (typeof oSettings == 'function') {
+            fCallback = oSettings;
+        } else {
+            oSettings = oSettings || {
+                prefix: 'knoxed-'
+            };
+        }
+        
+        fCallback       = typeof fCallback       == 'function' ? fCallback         : function() {};
+        fBufferCallback = typeof fBufferCallback == 'function' ? fBufferCallback  : function() {};
 
         temp.open(oSettings, function(oError, oTempFile) {
-            this.Client.getFile(sFile, function(error, oResponse) {
-                oResponse.setEncoding(sType);
-                oResponse
-                    .on('data', function(sChunk) {
-                        sContents += sChunk;
-                    })
-                    .on('end',  function() {
-                        fs.writeFile(oTempFile.path, sContents, sType, function(oError) {
-                            fCallback(oTempFile.path);
-                        });
-                    });
+            var sContents = '';
+            var oStream = fs.createWriteStream(oTempFile.path);
+            this.getFileBuffer(sFile, sType, function(oBuffer) {
+                oStream.end();
+                fCallback(oTempFile.path)
+            }, function(oBuffer, iLength, iWritten) {
+                oStream.write(oBuffer.slice(iLength - iWritten, iLength));
+                fBufferCallback(oBuffer, iLength, iWritten);
             });
         }.bind(this));
     };
