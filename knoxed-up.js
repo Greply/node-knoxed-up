@@ -47,6 +47,19 @@
 
     /**
      *
+     * @param string sFile       Path to file
+     * @param function fCallback boolean
+     */
+    KnoxedUp.prototype.fileExists = function(sFile, fCallback) {
+        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
+
+        this.Client.head(sFile).on('response', function(oResponse) {
+            fCallback(oResponse.statusCode != 404);
+        }).end();
+    };
+
+    /**
+     *
      * @param string   sFile     Path to File
      * @param function fCallback Full contents of File
      */
