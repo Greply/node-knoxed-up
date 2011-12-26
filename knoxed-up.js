@@ -2,6 +2,7 @@
     var temp        = require('temp');
     var Knox        = require('knox');
     var toolbox     = require('toolbox');
+    var parser      = require('libxml-to-js');
     var Buffer      = require('buffer').Buffer;
 
     var KnoxedUp = function(config) {
@@ -21,27 +22,32 @@
         fError    = typeof fError    == 'function' ? fError     : function() {};
 
         this.Client.get('/?prefix=' + sPrefix).on('response', function(oResponse) {
+            var sContents = '';
             oResponse.setEncoding('utf8');
-            oResponse.on('data', function(oChunk){
-                parser(oChunk, function (oError, oResult) {
-                    if (oError) {
-                        fError(oError);
-                    } else {
-                        var aFiles = [];
-                        if (oResult.Contents !== undefined) {
-                            if (oResult.Contents.length) {
-                                for (var i in oResult.Contents) {
-                                    if (oResult.Contents[i].Key) {
-                                        aFiles.push(oResult.Contents[i].Key)
+            oResponse
+                .on('data', function(sChunk){
+                    sContents += sChunk;
+                })
+                .on('end', function(sChunk) {
+                    parser(sContents, function (oError, oResult) {
+                        if (oError) {
+                            fError(oError);
+                        } else {
+                            var aFiles = [];
+                            if (oResult.Contents !== undefined) {
+                                if (oResult.Contents.length) {
+                                    for (var i in oResult.Contents) {
+                                        if (oResult.Contents[i].Key) {
+                                            aFiles.push(oResult.Contents[i].Key)
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        fCallback(aFiles);
-                    }
+                            fCallback(aFiles);
+                        }
+                    });
                 });
-            });
         }).end();
     };
 
