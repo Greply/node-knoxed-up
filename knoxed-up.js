@@ -1,4 +1,5 @@
     var fs          = require('fs');
+    var path        = require('path');
     var temp        = require('temp');
     var Knox        = require('knox');
     var toolbox     = require('toolbox');
@@ -7,6 +8,11 @@
 
     var KnoxedUp = function(config) {
         this.Client = Knox.createClient(config);
+
+        if (config.local !== undefined
+        &&  config.path  !== undefined) {
+            KnoxedUp.setLocal(config.local, config.path);
+        }
     };
 
     module.exports = KnoxedUp;
@@ -59,9 +65,32 @@
     KnoxedUp.prototype.fileExists = function(sFile, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
-        this.Client.head(sFile).on('response', function(oResponse) {
-            fCallback(oResponse.statusCode != 404);
-        }).end();
+        if (KnoxedUp.isLocal()) {
+            path.exists(KnoxedUp.sPath + sFile, fCallback);
+        } else {
+            this.Client.head(sFile).on('response', function(oResponse) {
+                fCallback(oResponse.statusCode != 404);
+            }).end();
+        }
+    };
+
+    /**
+     *
+     * @param string   sFile     Path to File
+     * @param function fCallback Full contents of File
+     */
+    KnoxedUp.prototype.putStream = function(sFrom, sTo, fCallback) {
+        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
+
+        if (KnoxedUp.isLocal()) {
+            toolbox.copyFile(sFrom, KnoxedUp.sPath + sTo, function() {
+                fCallback(sTo);
+            });
+        } else {
+            this.Client.putStream(fs.createReadStream(sFrom), sTo, function() {
+                fCallback(sTo);
+            }).end();
+        }
     };
 
     /**
@@ -72,17 +101,21 @@
     KnoxedUp.prototype.getFile = function(sFile, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
-        this.Client.get(sFile).on('response', function(oResponse) {
-            var sContents = '';
-            oResponse.setEncoding('utf8');
-            oResponse
-                .on('data', function(sChunk){
-                    sContents += sChunk;
-                })
-                .on('end', function(sChunk){
-                    fCallback(sContents);
-                });
-        }).end();
+        if (KnoxedUp.isLocal()) {
+            fCallback(fs.readFileSync(KnoxedUp.sPath + sFile));
+        } else {
+            this.Client.get(sFile).on('response', function(oResponse) {
+                var sContents = '';
+                oResponse.setEncoding('utf8');
+                oResponse
+                    .on('data', function(sChunk){
+                        sContents += sChunk;
+                    })
+                    .on('end', function(sChunk){
+                        fCallback(sContents);
+                    });
+            }).end();
+        }
     };
 
     /**
@@ -96,22 +129,35 @@
         fBufferCallback = typeof fBufferCallback == 'function' ? fBufferCallback  : function() {};
         sType           = sType || 'utf8';
 
-        var oRequest = this.Client.get(sFile);
-        oRequest.on('response', function(oResponse) {
-            var oBuffer  = new Buffer(parseInt(oResponse.headers['content-length'], 10));
-            var iBuffer  = 0;
-            var iWritten = 0;
-            oResponse.setEncoding(sType);
-            oResponse
-                .on('data', function(sChunk){
-                    iWritten = oBuffer.write(sChunk, iBuffer, sType);
-                    iBuffer += iWritten;
-                    fBufferCallback(oBuffer, iBuffer, iWritten);
-                })
-                .on('end', function(){
-                    fDoneCallback(oBuffer);
-                });
-        }).end();
+        if (KnoxedUp.isLocal()) {
+            fs.readFile(KnoxedUp.sPath + sFile, sType, function(oError, oBuffer) {
+                console.log('Read', KnoxedUp.sPath + sFile, oBuffer.length);
+                fDoneCallback(oBuffer);
+            });
+
+            return {
+                abort: function() {
+                    console.error('ABORT!');
+                }
+            }
+        } else {
+            var oRequest = this.Client.get(sFile);
+            oRequest.on('response', function(oResponse) {
+                var oBuffer  = new Buffer(parseInt(oResponse.headers['content-length'], 10));
+                var iBuffer  = 0;
+                var iWritten = 0;
+                oResponse.setEncoding(sType);
+                oResponse
+                    .on('data', function(sChunk){
+                        iWritten = oBuffer.write(sChunk, iBuffer, sType);
+                        iBuffer += iWritten;
+                        fBufferCallback(oBuffer, iBuffer, iWritten);
+                    })
+                    .on('end', function(){
+                        fDoneCallback(oBuffer);
+                    });
+            }).end();
+        }
 
         return oRequest;
     };
@@ -151,18 +197,22 @@
     KnoxedUp.prototype.copyFile = function(sFrom, sTo, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
-        var oOptions = {
-            'Content-Length': '0',
-            'x-amz-copy-source': '/' + this.Client.bucket + '/' + sFrom,
-            'x-amz-metadata-directive': 'COPY'
-        };
+        if (KnoxedUp.isLocal()) {
+            toolbox.copyFile(KnoxedUp.sPath + sFrom, KnoxedUp.sPath + sTo, fCallback);
+        } else {
+            var oOptions = {
+                'Content-Length': '0',
+                'x-amz-copy-source': '/' + this.Client.bucket + '/' + sFrom,
+                'x-amz-metadata-directive': 'COPY'
+            };
 
-        this.Client.put(sTo, oOptions).on('response', function(oResponse) {
-            oResponse.setEncoding('utf8');
-            oResponse.on('data', function(oChunk){
-                fCallback(oChunk);
-            });
-        }).end();
+            this.Client.put(sTo, oOptions).on('response', function(oResponse) {
+                oResponse.setEncoding('utf8');
+                oResponse.on('data', function(oChunk){
+                    fCallback(oChunk);
+                });
+            }).end();
+        }
     };
 
     /**
@@ -174,10 +224,14 @@
     KnoxedUp.prototype.moveFile = function(sFrom, sTo, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
-        this.copyFile(sFrom, sTo, function(oChunk) {
-            this.Client.del(sFrom).end();
-            fCallback(oChunk);
-        });
+        if (KnoxedUp.isLocal()) {
+            toolbox.moveFile(KnoxedUp.sPath + sFrom, KnoxedUp.sPath + sTo, fCallback);
+        } else {
+            this.copyFile(sFrom, sTo, function(oChunk) {
+                this.Client.del(sFrom).end();
+                fCallback(oChunk);
+            });
+        }
     };
 
     /**
@@ -188,7 +242,7 @@
      */
     KnoxedUp.prototype.toTemp = function(sFile, sType, oSettings, fCallback, fBufferCallback) {
         sType = sType || 'binary';
-        
+
         if (typeof oSettings == 'function') {
             fCallback = oSettings;
         } else {
@@ -196,20 +250,26 @@
                 prefix: 'knoxed-'
             };
         }
-        
+
         fCallback       = typeof fCallback       == 'function' ? fCallback         : function() {};
         fBufferCallback = typeof fBufferCallback == 'function' ? fBufferCallback  : function() {};
 
         temp.open(oSettings, function(oError, oTempFile) {
-            var sContents = '';
-            var oStream = fs.createWriteStream(oTempFile.path);
-            this.getFileBuffer(sFile, sType, function(oBuffer) {
-                oStream.end();
-                fCallback(oTempFile.path)
-            }, function(oBuffer, iLength, iWritten) {
-                oStream.write(oBuffer.slice(iLength - iWritten, iLength));
-                fBufferCallback(oBuffer, iLength, iWritten);
-            });
+            if (KnoxedUp.isLocal()) {
+                toolbox.copyFile(KnoxedUp.sPath + sFile, oTempFile.path, function() {
+                    fCallback(oTempFile.path);
+                });
+            } else {
+                var sContents = '';
+                var oStream = fs.createWriteStream(oTempFile.path);
+                this.getFileBuffer(sFile, sType, function(oBuffer) {
+                    oStream.end();
+                    fCallback(oTempFile.path)
+                }, function(oBuffer, iLength, iWritten) {
+                    oStream.write(oBuffer.slice(iLength - iWritten, iLength));
+                    fBufferCallback(oBuffer, iLength, iWritten);
+                });
+            }
         }.bind(this));
     };
 
@@ -239,3 +299,16 @@
             }
         }
     };
+
+    KnoxedUp.isLocal = function() {
+        return KnoxedUp.bLocal
+            && KnoxedUp.sPath.length > 0;
+    };
+
+    KnoxedUp.setLocal = function(bLocal, sPath) {
+        KnoxedUp.bLocal = bLocal;
+        KnoxedUp.sPath  = sPath;
+    };
+
+    KnoxedUp.bLocal = false;
+    KnoxedUp.sPath  = '';
