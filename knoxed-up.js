@@ -3,7 +3,7 @@
     var temp        = require('temp');
     var Knox        = require('knox');
     var toolbox     = require('toolbox');
-    var parser      = require('libxml-to-js');
+    var xml2js      = require('xml2js');
     var Buffer      = require('buffer').Buffer;
 
     var KnoxedUp = function(config) {
@@ -27,6 +27,8 @@
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
         fError    = typeof fError    == 'function' ? fError     : function() {};
 
+        var parser = new xml2js.Parser();
+
         this.Client.get('/?prefix=' + sPrefix).on('response', function(oResponse) {
             var sContents = '';
             oResponse.setEncoding('utf8');
@@ -35,7 +37,7 @@
                     sContents += sChunk;
                 })
                 .on('end', function(sChunk) {
-                    parser(sContents, function (oError, oResult) {
+                    parser.parseString(sContents, function (oError, oResult) {
                         if (oError) {
                             fError(oError);
                         } else {
