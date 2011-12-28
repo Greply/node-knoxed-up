@@ -79,7 +79,7 @@
      * @param string   sFile     Path to File
      * @param function fCallback Full contents of File
      */
-    KnoxedUp.prototype.putStream = function(sFrom, sTo, fCallback) {
+    KnoxedUp.prototype.putStream = function(sFrom, sTo, oHeaders, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
         if (KnoxedUp.isLocal()) {
@@ -87,9 +87,9 @@
                 fCallback(sTo);
             });
         } else {
-            this.Client.putStream(fs.createReadStream(sFrom), sTo, function() {
+            this.Client.putStream(fs.createReadStream(sFrom), sTo, oHeaders, function() {
                 fCallback(sTo);
-            }).end();
+            });
         }
     };
 
