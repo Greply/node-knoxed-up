@@ -2,7 +2,7 @@
     var path        = require('path');
     var temp        = require('temp');
     var Knox        = require('knox');
-    var toolbox     = require('toolbox');
+    var fs_tools    = require('fs-tools');
     var xml2js      = require('xml2js');
     var Buffer      = require('buffer').Buffer;
 
@@ -100,7 +100,7 @@
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
         if (KnoxedUp.isLocal()) {
-            toolbox.copyFile(sFrom, KnoxedUp.sPath + sTo, function() {
+            fs_tools.copyFile(sFrom, KnoxedUp.sPath + sTo, function() {
                 fCallback(sTo);
             });
         } else {
@@ -215,7 +215,7 @@
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
         if (KnoxedUp.isLocal()) {
-            toolbox.copyFile(KnoxedUp.sPath + sFrom, KnoxedUp.sPath + sTo, fCallback);
+            fs_tools.copyFile(KnoxedUp.sPath + sFrom, KnoxedUp.sPath + sTo, fCallback);
         } else {
             var oOptions = {
                 'Content-Length': '0',
@@ -242,7 +242,7 @@
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
         if (KnoxedUp.isLocal()) {
-            toolbox.moveFile(KnoxedUp.sPath + sFrom, KnoxedUp.sPath + sTo, fCallback);
+            fs_tools.moveFile(KnoxedUp.sPath + sFrom, KnoxedUp.sPath + sTo, fCallback);
         } else {
             this.copyFile(sFrom, sTo, function(oChunk) {
                 this.Client.del(sFrom).end();
@@ -273,7 +273,7 @@
 
         temp.open(oSettings, function(oError, oTempFile) {
             if (KnoxedUp.isLocal()) {
-                toolbox.copyFile(KnoxedUp.sPath + sFile, oTempFile.path, function() {
+                fs_tools.copyFile(KnoxedUp.sPath + sFile, oTempFile.path, function() {
                     fCallback(oTempFile.path);
                 });
             } else {
