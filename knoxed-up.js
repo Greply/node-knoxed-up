@@ -2,7 +2,7 @@
     var path        = require('path');
     var temp        = require('temp');
     var Knox        = require('knox');
-    var fs_tools    = require('fs-tools');
+    var fs_tools    = require('fs-extended');
     var xml2js      = require('xml2js');
     var Buffer      = require('buffer').Buffer;
 
