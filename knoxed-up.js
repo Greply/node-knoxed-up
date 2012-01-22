@@ -262,6 +262,9 @@
 
         if (typeof oSettings == 'function') {
             fCallback = oSettings;
+            oSettings = {
+                prefix: 'knoxed-'
+            };
         } else {
             oSettings = oSettings || {
                 prefix: 'knoxed-'
@@ -277,15 +280,21 @@
                     fCallback(oTempFile.path);
                 });
             } else {
-                var sContents = '';
-                var oStream = fs.createWriteStream(oTempFile.path);
-                this.getFileBuffer(sFile, sType, function(oBuffer) {
+                var oStream = fs.createWriteStream(oTempFile.path, {
+                    flags: 'w',
+                    encoding: sType,
+                    mode: 0777
+                });
+
+                var oRequest = this.getFileBuffer(sFile, sType, function(oBuffer) {
                     oStream.end();
-                    fCallback(oTempFile.path)
+                    fCallback(oTempFile.path, oBuffer)
                 }, function(oBuffer, iLength, iWritten) {
-                    oStream.write(oBuffer.slice(iLength - iWritten, iLength));
+                    oStream.write(oBuffer.slice(iLength - iWritten, iLength), sType);
                     fBufferCallback(oBuffer, iLength, iWritten);
                 });
+
+                return oRequest;
             }
         }.bind(this));
     };
