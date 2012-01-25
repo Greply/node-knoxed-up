@@ -288,7 +288,10 @@
 
                 var oRequest = this.getFileBuffer(sFile, sType, function(oBuffer) {
                     oStream.end();
-                    fCallback(oTempFile.path, oBuffer)
+
+                    fs.chmod(oTempFile.path, 0777, function() {
+                        fCallback(oTempFile.path, oBuffer);
+                    });
                 }, function(oBuffer, iLength, iWritten) {
                     oStream.write(oBuffer.slice(iLength - iWritten, iLength), sType);
                     fBufferCallback(oBuffer, iLength, iWritten);
