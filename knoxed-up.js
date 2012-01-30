@@ -61,21 +61,6 @@
 
     /**
      *
-     * @param string   sFrom     Path to Local File
-     * @param string   sTo       Path to Remote File
-     * @param object   oHeaders  Headers or Callback Function
-     * @param function fCallback Path to Remote File
-     */
-    KnoxedUp.prototype.putStream = function(sFrom, sTo, oHeaders, fCallback) {
-        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
-
-        this.Client.putStream(fs.createReadStream(sFrom), sTo, oHeaders, function() {
-            fCallback(sTo);
-        }).end();
-    };
-
-    /**
-     *
      * @param string sFile       Path to file
      * @param function fCallback boolean
      */
