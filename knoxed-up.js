@@ -4,6 +4,7 @@
     var Knox        = require('knox');
     var fs_tools    = require('fs-extended');
     var xml2js      = require('xml2js');
+    var async       = require('async');
     var Buffer      = require('buffer').Buffer;
 
     var KnoxedUp = function(config) {
@@ -297,21 +298,14 @@
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
         var oTempFiles = {};
-        var iTempFiles = 0;
-        var iFiles     = aFiles.length;
-        if (iFiles) {
-            for (var i in aFiles) {
-                var sFile = aFiles[i];
-                this.toTemp(sFile, sType, function(sTempFile) {
-                    iTempFiles++;
-                    oTempFiles[sFile] = sTempFile;
-
-                    if (iTempFiles >= iFiles) {
-                        fCallback(oTempFiles);
-                    }
-                })
-            }
-        }
+        async.forEach(aFiles, function (sFile, fCallbackAsync) {
+            this.toTemp(sFile, sType, function(sTempFile) {
+                oTempFiles[sFile] = sTempFile;
+                fCallbackAsync(null);
+            }.bind(this))
+        }.bind(this), function(oError) {
+            fCallback(oError, oTempFiles);
+        }.bind(this));
     };
 
     KnoxedUp.isLocal = function() {
