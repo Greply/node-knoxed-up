@@ -246,15 +246,16 @@
     KnoxedUp.prototype.toTemp = function(sFile, sType, oSettings, fCallback, fBufferCallback) {
         sType = sType || 'binary';
 
+        var oDefault = {
+            prefix: 'knoxed-',
+            suffix: path.extname(sFile)
+        };
+
         if (typeof oSettings == 'function') {
             fCallback = oSettings;
-            oSettings = {
-                prefix: 'knoxed-'
-            };
+            oSettings = oDefault;
         } else {
-            oSettings = oSettings || {
-                prefix: 'knoxed-'
-            };
+            oSettings = oSettings || oDefault;
         }
 
         fCallback       = typeof fCallback       == 'function' ? fCallback         : function() {};
