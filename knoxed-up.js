@@ -233,7 +233,7 @@
             this.copyFile(sFrom, sTo, function(oChunk) {
                 this.Client.del(sFrom).end();
                 fCallback(oChunk);
-            });
+            }.bind(this));
         }
     };
 
