@@ -134,7 +134,6 @@
 
         if (KnoxedUp.isLocal()) {
             fs.readFile(KnoxedUp.sPath + sFile, sType, function(oError, oBuffer) {
-                console.log('Read', KnoxedUp.sPath + sFile, oBuffer.length);
                 fDoneCallback(oBuffer);
             });
 
@@ -174,20 +173,20 @@
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
         var oContents = {};
-        var iContents = 0;
         var iFiles    = aFiles.length;
         if (iFiles) {
-            for (var i in aFiles) {
-                var sFile = aFiles[i];
+            async.forEach(aFiles, function(sFile, fGetCallback) {
                 this.getFile(sFile, function(sContents) {
-                    iContents++;
                     oContents[sFile] = sContents;
-
-                    if (iContents >= iFiles) {
-                        fCallback(oContents);
-                    }
-                })
-            }
+                    fGetCallback(null);
+                });
+            }.bind(this), function(oError) {
+                if (oError) {
+                    fCallback(oError);
+                } else {
+                    fCallback(null, oContents);
+                }
+            }.bind(this));
         }
     };
 
