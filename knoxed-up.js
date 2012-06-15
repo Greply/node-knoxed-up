@@ -5,6 +5,7 @@
     var fs_tools    = require('fs-extended');
     var xml2js      = require('xml2js');
     var async       = require('async');
+    var crypto      = require('crypto');
     var Buffer      = require('buffer').Buffer;
 
     var KnoxedUp = function(config) {
@@ -37,7 +38,7 @@
                 .on('data', function(sChunk){
                     sContents += sChunk;
                 })
-                .on('end', function(sChunk) {
+                .on('end', function() {
                     parser.parseString(sContents, function (oError, oResult) {
                         if (oError) {
                             fError(oError);
@@ -47,6 +48,10 @@
                                 if (oResult.Contents.length) {
                                     for (var i in oResult.Contents) {
                                         if (oResult.Contents[i].Key) {
+                                            if (oResult.Contents[i].Key.substr(-1) == '/') {
+                                                continue;
+                                            }
+
                                             aFiles.push(oResult.Contents[i].Key)
                                         }
                                     }
@@ -223,6 +228,39 @@
      * @param string   sTo       Destination Path of File
      * @param function fCallback
      */
+    KnoxedUp.prototype.copyFileToBucket = function(sFrom, sBucket, sTo, fCallback) {
+        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
+
+        if (KnoxedUp.isLocal()) {
+            fs_tools.copyFile(KnoxedUp.sPath + sFrom, KnoxedUp.sPath + sTo, fCallback);
+        } else {
+            var oOptions = {
+                'Content-Length': '0',
+                'x-amz-copy-source': '/' + this.Client.bucket + '/' + sFrom,
+                'x-amz-metadata-directive': 'COPY'
+            };
+
+            var oDestination = Knox.createClient({
+                key:    this.Client.key,
+                secret: this.Client.secret,
+                bucket: sBucket
+            });
+
+            oDestination.put(sTo, oOptions).on('response', function(oResponse) {
+                oResponse.setEncoding('utf8');
+                oResponse.on('data', function(oChunk){
+                    fCallback(oChunk);
+                });
+            }).end();
+        }
+    };
+
+    /**
+     *
+     * @param string   sFrom     Path of File to Move
+     * @param string   sTo       Destination Path of File
+     * @param function fCallback
+     */
     KnoxedUp.prototype.moveFile = function(sFrom, sTo, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
@@ -285,6 +323,50 @@
 
                 return oRequest;
             }
+        }.bind(this));
+    };
+
+    /**
+     *
+     * @param string   sFile     Path to File to Download
+     * @param string   sType     Binary or (?)
+     * @param function fCallback - Path of Temp File
+     */
+    KnoxedUp.prototype.toSha1 = function(sFile, sType, fCallback) {
+        fCallback = typeof fCallback == 'function' ? fCallback : function() {};
+        sType     = sType || 'binary';
+
+        var shasum   = crypto.createHash('sha1');
+        var oRequest = this.Client.get(sFile);
+        oRequest.on('response', function(oResponse) {
+            oResponse.setEncoding(sType);
+            oResponse
+                .on('data', function(sChunk){
+                    shasum.update(sChunk);
+                })
+                .on('end', function(){
+                    fCallback(shasum.digest('hex'));
+                });
+        }).end();
+    };
+
+    /**
+     *
+     * @param array    aFiles    Array if file paths to download to temp
+     * @param string   sType     Binary or (?)
+     * @param function fCallback Object of Temp Files with S3 file names as Key
+     */
+    KnoxedUp.prototype.filesToSha1 = function(aFiles, sType, fCallback) {
+        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
+
+        var oTempFiles = {};
+        async.forEach(aFiles, function (sFile, fCallbackAsync) {
+            this.toSha1(sFile, sType, function(sHash) {
+                oTempFiles[sFile] = sHash;
+                fCallbackAsync(null);
+            }.bind(this))
+        }.bind(this), function(oError) {
+            fCallback(oError, oTempFiles);
         }.bind(this));
     };
 
