@@ -45,7 +45,7 @@
                         } else {
                             var aFiles = [];
                             if (oResult.Contents !== undefined) {
-                                if (oResult.Contents.length) {
+                                if (Array.isArray(oResult.Contents)) {
                                     for (var i in oResult.Contents) {
                                         if (oResult.Contents[i].Key) {
                                             if (oResult.Contents[i].Key.substr(-1) == '/') {
@@ -53,6 +53,12 @@
                                             }
 
                                             aFiles.push(oResult.Contents[i].Key)
+                                        }
+                                    }
+                                } else {
+                                    if (oResult.Contents.Key) {
+                                        if (oResult.Contents.Key.substr(-1) != '/') {
+                                            aFiles.push(oResult.Contents.Key)
                                         }
                                     }
                                 }
@@ -148,6 +154,7 @@
                 }
             }
         } else {
+            var oSHASum  = crypto.createHash('sha1');
             var oRequest = this.Client.get(sFile);
             oRequest.on('response', function(oResponse) {
                 var oBuffer  = new Buffer(parseInt(oResponse.headers['content-length'], 10));
@@ -156,12 +163,13 @@
                 oResponse.setEncoding(sType);
                 oResponse
                     .on('data', function(sChunk){
+                        oSHASum.update(sChunk);
                         iWritten = oBuffer.write(sChunk, iBuffer, sType);
                         iBuffer += iWritten;
                         fBufferCallback(oBuffer, iBuffer, iWritten);
                     })
                     .on('end', function(){
-                        fDoneCallback(oBuffer);
+                        fDoneCallback(oBuffer, oSHASum.digest('hex'));
                     });
             }).end();
         }
@@ -295,7 +303,7 @@
             oSettings = oSettings || oDefault;
         }
 
-        fCallback       = typeof fCallback       == 'function' ? fCallback         : function() {};
+        fCallback       = typeof fCallback       == 'function' ? fCallback        : function() {};
         fBufferCallback = typeof fBufferCallback == 'function' ? fBufferCallback  : function() {};
 
         temp.open(oSettings, function(oError, oTempFile) {
@@ -306,15 +314,18 @@
             } else {
                 var oStream = fs.createWriteStream(oTempFile.path, {
                     flags: 'w',
-                    encoding: sType,
-                    mode: 0777
+                    encoding: sType
                 });
 
-                var oRequest = this.getFileBuffer(sFile, sType, function(oBuffer) {
+                var oRequest = this.getFileBuffer(sFile, sType, function(oBuffer, sHash) {
                     oStream.end();
 
-                    fs.chmod(oTempFile.path, 0777, function() {
-                        fCallback(oTempFile.path, oBuffer);
+                    var sExtension = path.extname(oTempFile.path);
+                    var sFinalFile = '/tmp/' + sHash + sExtension;
+                    fs_tools.moveFile(oTempFile.path, sFinalFile, function() {
+                        fs.chmod(sFinalFile, 0777, function() {
+                            fCallback(sFinalFile, oBuffer, sHash);
+                        });
                     });
                 }, function(oBuffer, iLength, iWritten) {
                     oStream.write(oBuffer.slice(iLength - iWritten, iLength), sType);
@@ -336,16 +347,16 @@
         fCallback = typeof fCallback == 'function' ? fCallback : function() {};
         sType     = sType || 'binary';
 
-        var shasum   = crypto.createHash('sha1');
+        var oSHASum   = crypto.createHash('sha1');
         var oRequest = this.Client.get(sFile);
         oRequest.on('response', function(oResponse) {
             oResponse.setEncoding(sType);
             oResponse
                 .on('data', function(sChunk){
-                    shasum.update(sChunk);
+                    oSHASum.update(sChunk);
                 })
                 .on('end', function(){
-                    fCallback(shasum.digest('hex'));
+                    fCallback(oSHASum.digest('hex'));
                 });
         }).end();
     };
