@@ -9,12 +9,23 @@
     var Buffer      = require('buffer').Buffer;
 
     var KnoxedUp = function(config) {
-        this.Client = Knox.createClient(config);
+        this.oConfig = config;
+        this.sOriginalBucket = this.oConfig.bucket;
+        this.Client  = Knox.createClient(this.oConfig);
 
         if (config.local !== undefined
         &&  config.path  !== undefined) {
             KnoxedUp.setLocal(config.local, config.path);
         }
+    };
+
+    KnoxedUp.prototype.setBucket = function(sBucket) {
+        this.oConfig.bucket = sBucket;
+        this.Client  = Knox.createClient(this.oConfig);
+    };
+
+    KnoxedUp.prototype.revertBucket = function() {
+        this.setBucket(this.sOriginalBucket);
     };
 
     module.exports = KnoxedUp;
@@ -261,6 +272,21 @@
                 });
             }).end();
         }
+    };
+
+    /**
+     *
+     * @param string   sFrom     Path of File to Move
+     * @param string   sTo       Destination Path of File
+     * @param function fCallback
+     */
+    KnoxedUp.prototype.moveFileToBucket = function(sFrom, sBucket, sTo, fCallback) {
+        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
+
+        this.copyFileToBucket(sFrom, sBucket, sTo, function(oChunk) {
+            this.Client.del(sFrom).end();
+            fCallback(oChunk);
+        }.bind(this));
     };
 
     /**
