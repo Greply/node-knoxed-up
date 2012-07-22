@@ -350,9 +350,10 @@
     KnoxedUp.prototype.toTemp = function(sFile, sType, oSettings, fCallback, fBufferCallback) {
         sType = sType || 'binary';
 
+        var sExtension = path.extname(sFile);
         var oDefault = {
             prefix: 'knoxed-',
-            suffix: path.extname(sFile)
+            suffix: sExtension
         };
 
         if (typeof oSettings == 'function') {
@@ -362,15 +363,24 @@
             oSettings = oSettings || oDefault;
         }
 
+        if (!sExtension) {
+            if (oSettings.suffix) {
+                sExtension = oSettings.suffix;
+            }
+        }
+
         fCallback       = typeof fCallback       == 'function' ? fCallback        : function() {};
         fBufferCallback = typeof fBufferCallback == 'function' ? fBufferCallback  : function() {};
 
         temp.open(oSettings, function(oError, oTempFile) {
             if (KnoxedUp.isLocal()) {
                 var sFromLocal = this.getLocalPath(sFile);
-                fs_tools.mkdirP(path.dirname(oTempFile.path), 0777, function() {
-                    fs_tools.copyFile(sFromLocal, oTempFile.path, function() {
-                        fCallback(oTempFile.path);
+                fs_tools.copyFile(sFromLocal, oTempFile.path, function() {
+                    fs_tools.hashFile(oTempFile.path, sType, function(oError, sHash) {
+                        var sFinalFile = '/tmp/' + sHash + sExtension;
+                        fs_tools.moveFile(oTempFile.path, sFinalFile, function() {
+                            fCallback(sFinalFile, fs.readFileSync(sFinalFile), sHash);
+                        });
                     });
                 });
             } else {
@@ -382,7 +392,6 @@
                 var oRequest = this.getFileBuffer(sFile, sType, function(oBuffer, sHash) {
                     oStream.end();
 
-                    var sExtension = path.extname(oTempFile.path);
                     var sFinalFile = '/tmp/' + sHash + sExtension;
                     fs_tools.moveFile(oTempFile.path, sFinalFile, function() {
                         fs.chmod(sFinalFile, 0777, function() {
