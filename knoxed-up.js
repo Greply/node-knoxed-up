@@ -42,44 +42,68 @@
 
         var parser = new xml2js.Parser();
 
-        this.Client.get('/?prefix=' + sPrefix).on('response', function(oResponse) {
-            var sContents = '';
-            oResponse.setEncoding('utf8');
-            oResponse
-                .on('data', function(sChunk){
-                    sContents += sChunk;
-                })
-                .on('end', function() {
-                    parser.parseString(sContents, function (oError, oResult) {
-                        if (oError) {
-                            fError(oError);
-                        } else {
-                            var aFiles = [];
-                            if (oResult.Contents !== undefined) {
-                                if (Array.isArray(oResult.Contents)) {
-                                    for (var i in oResult.Contents) {
-                                        if (oResult.Contents[i].Key) {
-                                            if (oResult.Contents[i].Key.substr(-1) == '/') {
-                                                continue;
-                                            }
+        if (KnoxedUp.isLocal()) {
+            var oMatch     = new RegExp('^' + sPrefix);
+            var sPathLocal = this.getLocalPath();
+            var getFiles   = function(sPath, aReturn) {
+                aReturn = aReturn !== undefined ? aReturn : [];
+                var aFiles = fs.readdirSync(path.join(sPathLocal, sPath));
+                for (var i in aFiles) {
+                    var sFile      = aFiles[i];
+                    var sFullFile  = path.join(sPath, sFile);
+                    var sFullLocal = path.join(sPathLocal, sFullFile);
+                    var oStat = fs.statSync(sFullLocal);
+                    if (oStat.isDirectory()) {
+                        getFiles(sFullFile, aReturn);
+                    } else if (sFullFile.match(oMatch)) {
+                        aReturn.push(sFullFile);
+                    }
+                }
 
-                                            aFiles.push(oResult.Contents[i].Key)
+                return aReturn;
+            };
+
+            fCallback(getFiles());
+        } else {
+            this.Client.get('/?prefix=' + sPrefix).on('response', function(oResponse) {
+                var sContents = '';
+                oResponse.setEncoding('utf8');
+                oResponse
+                    .on('data', function(sChunk){
+                        sContents += sChunk;
+                    })
+                    .on('end', function() {
+                        parser.parseString(sContents, function (oError, oResult) {
+                            if (oError) {
+                                fError(oError);
+                            } else {
+                                var aFiles = [];
+                                if (oResult.Contents !== undefined) {
+                                    if (Array.isArray(oResult.Contents)) {
+                                        for (var i in oResult.Contents) {
+                                            if (oResult.Contents[i].Key) {
+                                                if (oResult.Contents[i].Key.substr(-1) == '/') {
+                                                    continue;
+                                                }
+
+                                                aFiles.push(oResult.Contents[i].Key)
+                                            }
                                         }
-                                    }
-                                } else {
-                                    if (oResult.Contents.Key) {
-                                        if (oResult.Contents.Key.substr(-1) != '/') {
-                                            aFiles.push(oResult.Contents.Key)
+                                    } else {
+                                        if (oResult.Contents.Key) {
+                                            if (oResult.Contents.Key.substr(-1) != '/') {
+                                                aFiles.push(oResult.Contents.Key)
+                                            }
                                         }
                                     }
                                 }
-                            }
 
-                            fCallback(aFiles);
-                        }
+                                fCallback(aFiles);
+                            }
+                        });
                     });
-                });
-        }).end();
+            }).end();
+        }
     };
 
     /**
