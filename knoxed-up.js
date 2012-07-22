@@ -91,7 +91,7 @@
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
         if (KnoxedUp.isLocal()) {
-            path.exists(KnoxedUp.sPath + sFile, fCallback);
+            fs.exists(this.getLocalPath(sFile), fCallback);
         } else {
             this.Client.head(sFile).on('response', function(oResponse) {
                 fCallback(oResponse.statusCode != 404);
