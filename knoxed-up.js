@@ -443,7 +443,9 @@
         sType     = sType || 'binary';
 
         if (KnoxedUp.isLocal()) {
-            fs_tools.hashFile(this.getLocalPath(sFile), sType, fCallback);
+            fs_tools.hashFile(this.getLocalPath(sFile), sType, function(oError, sHash) {
+                fCallback(sHash);
+            });
         } else {
             var oSHASum   = crypto.createHash('sha1');
             var oRequest = this.Client.get(sFile);
