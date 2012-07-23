@@ -7,6 +7,7 @@
     var async       = require('async');
     var crypto      = require('crypto');
     var Buffer      = require('buffer').Buffer;
+    var syslog      = require('syslog-console').init('KnoxedUp');
 
     var KnoxedUp = function(config) {
         this.oConfig = config;
@@ -190,9 +191,11 @@
         fBufferCallback = typeof fBufferCallback == 'function' ? fBufferCallback  : function() {};
         sType           = sType || 'utf8';
 
+        var oSHASum  = crypto.createHash('sha1');
         if (KnoxedUp.isLocal()) {
             fs.readFile(this.getLocalPath(sFile), sType, function(oError, oBuffer) {
-                fDoneCallback(oBuffer);
+                oSHASum.update(oBuffer);
+                fDoneCallback(oBuffer, oSHASum.digest('hex'));
             });
 
             return {
@@ -201,7 +204,6 @@
                 }
             }
         } else {
-            var oSHASum  = crypto.createHash('sha1');
             var oRequest = this.Client.get(sFile);
             oRequest.on('response', function(oResponse) {
                 var oBuffer  = new Buffer(parseInt(oResponse.headers['content-length'], 10));
@@ -397,38 +399,33 @@
         fBufferCallback = typeof fBufferCallback == 'function' ? fBufferCallback  : function() {};
 
         temp.open(oSettings, function(oError, oTempFile) {
-            if (KnoxedUp.isLocal()) {
-                var sFromLocal = this.getLocalPath(sFile);
-                fs_tools.copyFile(sFromLocal, oTempFile.path, function() {
-                    fs_tools.hashFile(oTempFile.path, sType, function(oError, sHash) {
-                        var sFinalFile = '/tmp/' + sHash + sExtension;
-                        fs_tools.moveFile(oTempFile.path, sFinalFile, function() {
-                            fCallback(sFinalFile, fs.readFileSync(sFinalFile), sHash);
-                        });
+            syslog.debug({action: 'KnoxedUp.toTemp', path: oTempFile.path, file: sFile});
+            var oStream = fs.createWriteStream(oTempFile.path, {
+                flags: 'w',
+                encoding: sType
+            });
+
+            var oRequest = this.getFileBuffer(sFile, sType, function(oBuffer, sHash) {
+                syslog.debug({action: 'KnoxedUp.toTemp.buffered', hash: sHash});
+                if (KnoxedUp.isLocal()) {
+                    oStream.write(oBuffer, sType);
+                }
+
+                oStream.end();
+
+                var sFinalFile = '/tmp/' + sHash + sExtension;
+                fs_tools.moveFile(oTempFile.path, sFinalFile, function() {
+                    fs.chmod(sFinalFile, 0777, function() {
+                        fCallback(sFinalFile, oBuffer, sHash);
                     });
                 });
-            } else {
-                var oStream = fs.createWriteStream(oTempFile.path, {
-                    flags: 'w',
-                    encoding: sType
-                });
+            }, function(oBuffer, iLength, iWritten) {
+                syslog.debug({action: 'KnoxedUp.toTemp.buffering', length: iLength, written: iWritten});
+                oStream.write(oBuffer.slice(iLength - iWritten, iLength), sType);
+                fBufferCallback(oBuffer, iLength, iWritten);
+            });
 
-                var oRequest = this.getFileBuffer(sFile, sType, function(oBuffer, sHash) {
-                    oStream.end();
-
-                    var sFinalFile = '/tmp/' + sHash + sExtension;
-                    fs_tools.moveFile(oTempFile.path, sFinalFile, function() {
-                        fs.chmod(sFinalFile, 0777, function() {
-                            fCallback(sFinalFile, oBuffer, sHash);
-                        });
-                    });
-                }, function(oBuffer, iLength, iWritten) {
-                    oStream.write(oBuffer.slice(iLength - iWritten, iLength), sType);
-                    fBufferCallback(oBuffer, iLength, iWritten);
-                });
-
-                return oRequest;
-            }
+            return oRequest;
         }.bind(this));
     };
 
