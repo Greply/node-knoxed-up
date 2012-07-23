@@ -7,7 +7,6 @@
     var async       = require('async');
     var crypto      = require('crypto');
     var Buffer      = require('buffer').Buffer;
-    var syslog      = require('syslog-console').init('KnoxedUp');
 
     var KnoxedUp = function(config) {
         this.oConfig = config;
@@ -212,12 +211,12 @@
                 oResponse.setEncoding(sType);
                 oResponse
                     .on('data', function(sChunk){
-                        oSHASum.update(sChunk);
                         iWritten = oBuffer.write(sChunk, iBuffer, sType);
                         iBuffer += iWritten;
                         fBufferCallback(oBuffer, iBuffer, iWritten);
                     })
                     .on('end', function(){
+                        oSHASum.update(oBuffer);
                         fDoneCallback(oBuffer, oSHASum.digest('hex'));
                     });
             }).end();
@@ -399,14 +398,12 @@
         fBufferCallback = typeof fBufferCallback == 'function' ? fBufferCallback  : function() {};
 
         temp.open(oSettings, function(oError, oTempFile) {
-            syslog.debug({action: 'KnoxedUp.toTemp', path: oTempFile.path, file: sFile});
             var oStream = fs.createWriteStream(oTempFile.path, {
                 flags: 'w',
                 encoding: sType
             });
 
             var oRequest = this.getFileBuffer(sFile, sType, function(oBuffer, sHash) {
-                syslog.debug({action: 'KnoxedUp.toTemp.buffered', hash: sHash});
                 if (KnoxedUp.isLocal()) {
                     oStream.write(oBuffer, sType);
                 }
@@ -420,7 +417,6 @@
                     });
                 });
             }, function(oBuffer, iLength, iWritten) {
-                syslog.debug({action: 'KnoxedUp.toTemp.buffering', length: iLength, written: iWritten});
                 oStream.write(oBuffer.slice(iLength - iWritten, iLength), sType);
                 fBufferCallback(oBuffer, iLength, iWritten);
             });
