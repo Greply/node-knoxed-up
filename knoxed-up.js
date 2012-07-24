@@ -149,15 +149,16 @@
             fs_tools.mkdirP(path.dirname(sToLocal), 0777, function(oError) {
                 if (oError) {
                     console.error('putStream.Local.error', sFrom, sToLocal, oError);
+                    fCallback(oError, sTo);
                 } else {
                     fs_tools.copyFile(sFrom, sToLocal, function() {
-                        fCallback(sTo);
+                        fCallback(null, sTo);
                     });
                 }
             });
         } else {
-            this.Client.putStream(fs.createReadStream(sFrom), sTo, oHeaders, function() {
-                fCallback(sTo);
+            this.Client.putStream(fs.createReadStream(sFrom), sTo, oHeaders, function(oError) {
+                fCallback(oError, sTo);
             });
         }
     };
