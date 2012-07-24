@@ -65,7 +65,7 @@
 
             fCallback(getFiles());
         } else {
-            this.Client.get('/?prefix=' + sPrefix).on('response', function(oResponse) {
+            this.get('/?prefix=' + sPrefix).on('response', function(oResponse) {
                 var sContents = '';
                 oResponse.setEncoding('utf8');
                 oResponse
@@ -104,6 +104,14 @@
                     });
             }).end();
         }
+    };
+
+    KnoxedUp.prototype.get = function (sFile) {
+        if (!sFile.match(/^\//)) {
+            sFile = '/' + sFile;
+        }
+
+        return this.Client.get(sFile);
     };
 
     /**
@@ -165,7 +173,7 @@
         if (KnoxedUp.isLocal()) {
             fCallback(fs.readFileSync(this.getLocalPath(sFile)));
         } else {
-            this.Client.get(sFile).on('response', function(oResponse) {
+            this.get(sFile).on('response', function(oResponse) {
                 var sContents = '';
                 oResponse.setEncoding('utf8');
                 oResponse
@@ -203,17 +211,25 @@
                 }
             }
         } else {
-            var oRequest = this.Client.get(sFile);
+            var oRequest = this.get('/' + sFile);
             oRequest.on('response', function(oResponse) {
                 var oBuffer  = new Buffer(parseInt(oResponse.headers['content-length'], 10));
                 var iBuffer  = 0;
                 var iWritten = 0;
+
+                if(oResponse.statusCode == 400) {
+                    console.error('error', oResponse.statusCode);
+                }
+
                 oResponse.setEncoding(sType);
                 oResponse
                     .on('data', function(sChunk){
                         iWritten = oBuffer.write(sChunk, iBuffer, sType);
                         iBuffer += iWritten;
                         fBufferCallback(oBuffer, iBuffer, iWritten);
+                    })
+                    .on('error', function(oError){
+                        console.error('error', oError);
                     })
                     .on('end', function(){
                         oSHASum.update(oBuffer);
@@ -441,7 +457,7 @@
             });
         } else {
             var oSHASum   = crypto.createHash('sha1');
-            var oRequest = this.Client.get(sFile);
+            var oRequest = this.get(sFile);
             oRequest.on('response', function(oResponse) {
                 oResponse.setEncoding(sType);
                 oResponse
