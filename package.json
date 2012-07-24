@@ -10,9 +10,9 @@
     },
     "main" : "./knoxed-up",
     "dependencies": {
-        "knox":         "latest",
         "xml2js":       ">=0.1.13",
         "async":        ">=0.1.15",
+        "knox":         "git://github.com/slaskis/knox.git",
         "temp":         "git://github.com/bruce/node-temp.git",
         "fs-extended":  "git://github.com/enobrev/node-fs-extended.git"
     }
