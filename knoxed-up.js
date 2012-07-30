@@ -336,7 +336,7 @@
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
         if (KnoxedUp.isLocal()) {
-            var sFromLocal = path.join(KnoxedUp.sPath, this.oConfig.bucket, sFile);
+            var sFromLocal = path.join(KnoxedUp.sPath, this.oConfig.bucket, sFrom);
             var sToLocal   = path.join(KnoxedUp.sPath, sBucket,             sTo);
 
             fs_tools.mkdirP(path.dirname(sToLocal), 0777, function() {
