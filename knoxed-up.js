@@ -270,12 +270,41 @@
 
     /**
      *
+     * @param string   sFile
+     * @param object   oHeaders
+     * @param function fCallback
+     */
+    KnoxedUp.prototype.updateHeaders = function(sFile, oHeaders, fCallback) {
+        fCallback = typeof fCallback == 'function' ? fCallback : fCallback;
+
+        if (KnoxedUp.isLocal()) {
+            fCallback();
+        } else {
+            oHeaders['x-amz-copy-source']        = '/' + this.Client.bucket + '/' + sFile;
+            oHeaders['x-amz-metadata-directive'] = 'REPLACE';
+
+            this.Client.put(sFile, oHeaders).on('response', function(oResponse) {
+                oResponse.setEncoding('utf8');
+                oResponse.on('data', function(oChunk){
+                    fCallback(oChunk);
+                });
+            }).end();
+        }
+    };
+
+    /**
+     *
      * @param string   sFrom     Path of File to Move
      * @param string   sTo       Destination Path of File
      * @param function fCallback
      */
-    KnoxedUp.prototype.copyFile = function(sFrom, sTo, fCallback) {
-        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
+    KnoxedUp.prototype.copyFile = function(sFrom, sTo, oHeaders, fCallback) {
+        fCallback = typeof oHeaders == 'function' ? oHeaders : fCallback;
+
+        if (typeof oHeaders == 'function') {
+            fCallback = oHeaders;
+            oHeaders  = {};
+        }
 
         if (KnoxedUp.isLocal()) {
             var sFromLocal = this.getLocalPath(sFrom);
@@ -284,13 +313,11 @@
                 fs_tools.copyFile(sFromLocal, sToLocal, fCallback);
             });
         } else {
-            var oOptions = {
-                'Content-Length': '0',
-                'x-amz-copy-source': '/' + this.Client.bucket + '/' + sFrom,
-                'x-amz-metadata-directive': 'COPY'
-            };
+            oHeaders['Content-Length']           = '0';
+            oHeaders['x-amz-copy-source']        = '/' + this.Client.bucket + '/' + sFrom;
+            oHeaders['x-amz-metadata-directive'] = 'COPY';
 
-            this.Client.put(sTo, oOptions).on('response', function(oResponse) {
+            this.Client.put(sTo, oHeaders).on('response', function(oResponse) {
                 oResponse.setEncoding('utf8');
                 oResponse.on('data', function(oChunk){
                     fCallback(oChunk);
@@ -366,8 +393,13 @@
      * @param string   sTo       Destination Path of File
      * @param function fCallback
      */
-    KnoxedUp.prototype.moveFile = function(sFrom, sTo, fCallback) {
-        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
+    KnoxedUp.prototype.moveFile = function(sFrom, sTo, oHeaders, fCallback) {
+        fCallback = typeof oHeaders == 'function' ? oHeaders : fCallback;
+
+        if (typeof oHeaders == 'function') {
+            fCallback = oHeaders;
+            oHeaders  = {};
+        }
 
         if (KnoxedUp.isLocal()) {
             var sFromLocal = this.getLocalPath(sFrom);
@@ -376,10 +408,14 @@
                 fs_tools.moveFile(sFromLocal, sToLocal, fCallback);
             });
         } else {
-            this.copyFile(sFrom, sTo, function(oChunk) {
-                this.Client.del(sFrom).end();
-                fCallback(oChunk);
-            }.bind(this));
+            if (sFrom == sTo) {
+                fCallback();
+            } else {
+                this.copyFile(sFrom, sTo, oHeaders, function(oChunk) {
+                    this.Client.del(sFrom).end();
+                    fCallback(oChunk);
+                }.bind(this));
+            }
         }
     };
 
