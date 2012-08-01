@@ -285,8 +285,11 @@
 
             this.Client.put(sFile, oHeaders).on('response', function(oResponse) {
                 oResponse.setEncoding('utf8');
-                oResponse.on('data', function(oChunk){
-                    fCallback(oChunk);
+                oResponse.on('error', function(oError){
+                    fCallback(oError);
+                });
+                oResponse.on('data', function(){
+                    fCallback();
                 });
             }).end();
         }
