@@ -278,7 +278,7 @@
         fCallback = typeof fCallback == 'function' ? fCallback : function() {};
 
         if (KnoxedUp.isLocal()) {
-            fCallback();
+            fCallback(null);
         } else {
             oHeaders['x-amz-copy-source']        = '/' + this.Client.bucket + '/' + sFile;
             oHeaders['x-amz-metadata-directive'] = 'REPLACE';
@@ -288,8 +288,8 @@
                 oResponse.on('error', function(oError){
                     fCallback(oError);
                 });
-                oResponse.on('data', function(){
-                    fCallback();
+                oResponse.on('data', function() {
+                    fCallback(null);
                 });
             }).end();
         }
