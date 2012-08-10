@@ -275,24 +275,7 @@
      * @param function fCallback
      */
     KnoxedUp.prototype.updateHeaders = function(sFile, oHeaders, fCallback) {
-        fCallback = typeof fCallback == 'function' ? fCallback : function() {};
-
-        if (KnoxedUp.isLocal()) {
-            fCallback(null);
-        } else {
-            oHeaders['x-amz-copy-source']        = '/' + this.Client.bucket + '/' + sFile;
-            oHeaders['x-amz-metadata-directive'] = 'REPLACE';
-
-            this.Client.put(sFile, oHeaders).on('response', function(oResponse) {
-                oResponse.setEncoding('utf8');
-                oResponse.on('error', function(oError){
-                    fCallback(oError);
-                });
-                oResponse.on('data', function() {
-                    fCallback(null);
-                });
-            }).end();
-        }
+        this.copyFile(sFile, sFile, oHeaders, fCallback);
     };
 
     /**
@@ -316,9 +299,15 @@
                 fs_tools.copyFile(sFromLocal, sToLocal, fCallback);
             });
         } else {
+            var bHasHeaders = false;
+            for (var i in oHeaders) {
+                bHasHeaders = true;
+                break;
+            }
+
             oHeaders['Content-Length']           = '0';
             oHeaders['x-amz-copy-source']        = '/' + this.Client.bucket + '/' + sFrom;
-            oHeaders['x-amz-metadata-directive'] = 'COPY';
+            oHeaders['x-amz-metadata-directive'] = bHasHeaders ? 'REPLACE' : 'COPY';
 
             this.Client.put(sTo, oHeaders).on('response', function(oResponse) {
                 oResponse.setEncoding('utf8');
