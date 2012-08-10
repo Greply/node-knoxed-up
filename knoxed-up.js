@@ -275,7 +275,7 @@
      * @param function fCallback
      */
     KnoxedUp.prototype.updateHeaders = function(sFile, oHeaders, fCallback) {
-        fCallback = typeof fCallback == 'function' ? fCallback : fCallback;
+        fCallback = typeof fCallback == 'function' ? fCallback : function() {};
 
         if (KnoxedUp.isLocal()) {
             fCallback();
