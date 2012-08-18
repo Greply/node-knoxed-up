@@ -118,11 +118,22 @@
      * @param string sFile       Path to file
      * @param function fCallback boolean
      */
+    KnoxedUp.prototype._localFileExists = function(sFile, fCallback) {
+        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
+
+        fs.exists(this.getLocalPath(sFile), fCallback);
+    };
+
+    /**
+     *
+     * @param string sFile       Path to file
+     * @param function fCallback boolean
+     */
     KnoxedUp.prototype.fileExists = function(sFile, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
         if (KnoxedUp.isLocal()) {
-            fs.exists(this.getLocalPath(sFile), fCallback);
+            this._localFileExists(sFile, fCallback);
         } else {
             this.Client.head(sFile).on('response', function(oResponse) {
                 fCallback(oResponse.statusCode != 404);
@@ -170,7 +181,7 @@
     KnoxedUp.prototype.getFile = function(sFile, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
-        if (KnoxedUp.isLocal() && this.fileExists(sFile)) {
+        if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
             fCallback(fs.readFileSync(this.getLocalPath(sFile)));
         } else {
             this.get(sFile).on('response', function(oResponse) {
@@ -199,7 +210,7 @@
         sType           = sType || 'utf8';
 
         var oSHASum  = crypto.createHash('sha1');
-        if (KnoxedUp.isLocal() && this.fileExists(sFile)) {
+        if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
             fs.readFile(this.getLocalPath(sFile), sType, function(oError, oBuffer) {
                 oSHASum.update(oBuffer);
                 fDoneCallback(oBuffer, oSHASum.digest('hex'));
@@ -291,7 +302,7 @@
             oHeaders  = {};
         }
 
-        if (KnoxedUp.isLocal() && this.fileExists(sFrom)) {
+        if (KnoxedUp.isLocal() && this._localFileExists(sFrom)) {
             var sFromLocal = this.getLocalPath(sFrom);
             var sToLocal   = this.getLocalPath(sTo);
             fs_tools.mkdirP(path.dirname(sToLocal), 0777, function() {
@@ -327,7 +338,7 @@
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
         var sLocalPath = path.join(KnoxedUp.sPath, this.oConfig.bucket, sFrom);
-        if (KnoxedUp.isLocal() && this.fileExists(sLocalPath)) {
+        if (KnoxedUp.isLocal() && this._localFileExists(sLocalPath)) {
             var sFromLocal = sLocalPath;
             var sToLocal   = path.join(KnoxedUp.sPath, sBucket,             sTo);
 
@@ -365,7 +376,7 @@
     KnoxedUp.prototype.moveFileToBucket = function(sFrom, sBucket, sTo, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
-        if (KnoxedUp.isLocal() && this.fileExists(sFrom)) {
+        if (KnoxedUp.isLocal() && this._localFileExists(sFrom)) {
             var sFromLocal = this.getLocalPath(sFrom);
             var sToLocal   = path.join(KnoxedUp.sPath, sBucket, sTo);
             fs_tools.mkdirP(path.dirname(sToLocal), 0777, function() {
@@ -393,7 +404,7 @@
             oHeaders  = {};
         }
 
-        if (KnoxedUp.isLocal() && this.fileExists(sFrom)) {
+        if (KnoxedUp.isLocal() && this._localFileExists(sFrom)) {
             var sFromLocal = this.getLocalPath(sFrom);
             var sToLocal   = this.getLocalPath(sTo);
             fs_tools.mkdirP(path.dirname(sToLocal), 0777, function() {
@@ -429,10 +440,10 @@
         fCallback       = typeof fCallback       == 'function' ? fCallback        : function() {};
         fBufferCallback = typeof fBufferCallback == 'function' ? fBufferCallback  : function() {};
 
-        var sTempFile  = '/tmp/' + sFile;
+        var sTempFile  = '/tmp/' + sFile.split('/').pop();
         var oStream    = fs.createWriteStream(sTempFile, {
-            flags: 'w',
-            encoding: sType
+            flags:      'w',
+            encoding:   sType
         });
 
         var oRequest   = this.getFileBuffer(sFile, sType, function(oBuffer, sHash) {
@@ -466,7 +477,7 @@
         fCallback = typeof fCallback == 'function' ? fCallback : function() {};
         sType     = sType || 'binary';
 
-        if (KnoxedUp.isLocal() && this.fileExists(sFile)) {
+        if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
             fs_tools.hashFile(this.getLocalPath(sFile), sType, function(oError, sHash) {
                 fCallback(sHash);
             });
