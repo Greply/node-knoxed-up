@@ -478,7 +478,7 @@
         sType     = sType || 'binary';
 
         if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
-            fs_tools.hashFile(this.getLocalPath(sFile), sType, function(oError, sHash) {
+            fs_tools.hashFile(this.getLocalPath(sFile), function(oError, sHash) {
                 fCallback(sHash);
             });
         } else {
