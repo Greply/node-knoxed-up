@@ -76,6 +76,11 @@
                                 fError(oError);
                             } else {
                                 var aFiles = [];
+                                
+                                if (oResult.ListBucketResult !== undefined) {
+                                    oResult = oResult.ListBucketResult;
+                                }
+
                                 if (oResult.Contents !== undefined) {
                                     if (Array.isArray(oResult.Contents)) {
                                         for (var i in oResult.Contents) {
