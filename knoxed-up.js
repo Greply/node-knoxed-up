@@ -1,7 +1,7 @@
     var fs          = require('fs');
     var path        = require('path');
     var Knox        = require('knox');
-    var fs_tools    = require('fs-extended');
+    var fsX         = require('fs-extended');
     var xml2js      = require('xml2js');
     var async       = require('async');
     var Buffer      = require('buffer').Buffer;
@@ -155,12 +155,12 @@
 
         if (KnoxedUp.isLocal()) {
             var sToLocal = this.getLocalPath(sTo);
-            fs_tools.mkdirP(path.dirname(sToLocal), 0777, function(oError) {
+            fsX.mkdirP(path.dirname(sToLocal), 0777, function(oError) {
                 if (oError) {
                     console.error('putStream.Local.error', sFrom, sToLocal, oError);
                     fCallback(oError, sTo);
                 } else {
-                    fs_tools.copyFile(sFrom, sToLocal, function() {
+                    fsX.copyFile(sFrom, sToLocal, function() {
                         fCallback(null, sTo);
                     });
                 }
@@ -250,8 +250,8 @@
         if (KnoxedUp.isLocal() && this._localFileExists(sFrom)) {
             var sFromLocal = this.getLocalPath(sFrom);
             var sToLocal   = this.getLocalPath(sTo);
-            fs_tools.mkdirP(path.dirname(sToLocal), 0777, function() {
-                fs_tools.copyFile(sFromLocal, sToLocal, fCallback);
+            fsX.mkdirP(path.dirname(sToLocal), 0777, function() {
+                fsX.copyFile(sFromLocal, sToLocal, fCallback);
             });
         } else {
             var bHasHeaders = false;
@@ -287,8 +287,8 @@
             var sFromLocal = sLocalPath;
             var sToLocal   = path.join(KnoxedUp.sPath, sBucket,             sTo);
 
-            fs_tools.mkdirP(path.dirname(sToLocal), 0777, function() {
-                fs_tools.copyFile(sFromLocal, sToLocal, fCallback);
+            fsX.mkdirP(path.dirname(sToLocal), 0777, function() {
+                fsX.copyFile(sFromLocal, sToLocal, fCallback);
             });
         } else {
             var oOptions = {
@@ -324,8 +324,8 @@
         if (KnoxedUp.isLocal() && this._localFileExists(sFrom)) {
             var sFromLocal = this.getLocalPath(sFrom);
             var sToLocal   = path.join(KnoxedUp.sPath, sBucket, sTo);
-            fs_tools.mkdirP(path.dirname(sToLocal), 0777, function() {
-                fs_tools.moveFile(sFromLocal, sToLocal, fCallback);
+            fsX.mkdirP(path.dirname(sToLocal), 0777, function() {
+                fsX.moveFile(sFromLocal, sToLocal, fCallback);
             });
         } else {
             this.copyFileToBucket(sFrom, sBucket, sTo, function(oChunk) {
@@ -352,8 +352,8 @@
         if (KnoxedUp.isLocal() && this._localFileExists(sFrom)) {
             var sFromLocal = this.getLocalPath(sFrom);
             var sToLocal   = this.getLocalPath(sTo);
-            fs_tools.mkdirP(path.dirname(sToLocal), 0777, function() {
-                fs_tools.moveFile(sFromLocal, sToLocal, fCallback);
+            fsX.mkdirP(path.dirname(sToLocal), 0777, function() {
+                fsX.moveFile(sFromLocal, sToLocal, fCallback);
             });
         } else {
             if (sFrom == sTo) {
@@ -388,9 +388,9 @@
         var sTempFile  = '/tmp/' + sFile.split('/').pop();
 
         if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
-            fs_tools.hashFile(this.getLocalPath(sFile), function(oError, sHash) {
+            fsX.hashFile(this.getLocalPath(sFile), function(oError, sHash) {
                 var sFinalFile = '/tmp/' + sHash + sExtension;
-                fs_tools.copyFile(this.getLocalPath(sFile), sFinalFile, function() {
+                fsX.copyFile(this.getLocalPath(sFile), sFinalFile, function() {
                     fs.chmod(sFinalFile, 0777, function() {
                         fCallback(sFinalFile, sHash);
                     });
@@ -425,9 +425,9 @@
                     .on('end', function(){
                         oStream.end();
 
-                        fs_tools.hashFile(sTempFile, function(oError, sHash) {
+                        fsX.hashFile(sTempFile, function(oError, sHash) {
                             var sFinalFile = '/tmp/' + sHash + sExtension;
-                            fs_tools.moveFile(sTempFile, sFinalFile, function() {
+                            fsX.moveFile(sTempFile, sFinalFile, function() {
                                 fs.chmod(sFinalFile, 0777, function() {
                                     fCallback(sFinalFile, sHash);
                                 });
@@ -451,12 +451,12 @@
         sType     = sType || 'binary';
 
         if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
-            fs_tools.hashFile(this.getLocalPath(sFile), function(oError, sHash) {
+            fsX.hashFile(this.getLocalPath(sFile), function(oError, sHash) {
                 fCallback(sHash);
             });
         } else {
             this.toTemp(sFile, sType, function(sTempFile) {
-                fs_tools.hashFile(sTempFile, function(oError, sHash) {
+                fsX.hashFile(sTempFile, function(oError, sHash) {
                     fs.unlink(sTempFile, function() {
                         fCallback(sHash);
                     });
