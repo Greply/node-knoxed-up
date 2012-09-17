@@ -76,26 +76,38 @@
                                 fError(oError);
                             } else {
                                 var aFiles = [];
-                                
+
                                 if (oResult.ListBucketResult !== undefined) {
                                     oResult = oResult.ListBucketResult;
                                 }
+
+                                var sKey;
 
                                 if (oResult.Contents !== undefined) {
                                     if (Array.isArray(oResult.Contents)) {
                                         for (var i in oResult.Contents) {
                                             if (oResult.Contents[i].Key) {
-                                                if (oResult.Contents[i].Key.substr(-1) == '/') {
+                                                sKey = oResult.Contents[i].Key;
+                                                if (Array.isArray(sKey)) {
+                                                    sKey = sKey[0];
+                                                }
+
+                                                if (sKey.substr(-1) == '/') {
                                                     continue;
                                                 }
 
-                                                aFiles.push(oResult.Contents[i].Key)
+                                                aFiles.push(sKey)
                                             }
                                         }
                                     } else {
                                         if (oResult.Contents.Key) {
-                                            if (oResult.Contents.Key.substr(-1) != '/') {
-                                                aFiles.push(oResult.Contents.Key)
+                                            sKey = oResult.Contents.Key;
+                                            if (Array.isArray(sKey)) {
+                                                sKey = sKey[0];
+                                            }
+
+                                            if (sKey.substr(-1) != '/') {
+                                                aFiles.push(sKey)
                                             }
                                         }
                                     }
