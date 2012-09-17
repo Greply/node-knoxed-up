@@ -34,7 +34,7 @@
      * @param function fCallback Array of Objects in that folder
      * @param function fError
      */
-    KnoxedUp.prototype.getFileList = function(sPrefix, fCallback, fError) {
+    KnoxedUp.prototype.getFileList = function(sPrefix, iMax, fCallback, fError) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
         fError    = typeof fError    == 'function' ? fError     : function() {};
 
@@ -63,7 +63,7 @@
 
             fCallback(getFiles());
         } else {
-            this.get('/?prefix=' + sPrefix).on('response', function(oResponse) {
+            this.get('/?prefix=' + sPrefix + '&max_keys=' + iMax).on('response', function(oResponse) {
                 var sContents = '';
                 oResponse.setEncoding('utf8');
                 oResponse
