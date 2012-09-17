@@ -63,7 +63,7 @@
 
             fCallback(getFiles());
         } else {
-            this.get('/?prefix=' + sPrefix + '&max_keys=' + iMax).on('response', function(oResponse) {
+            this.get('/?prefix=' + sPrefix + '&max-keys=' + iMax).on('response', function(oResponse) {
                 var sContents = '';
                 oResponse.setEncoding('utf8');
                 oResponse
