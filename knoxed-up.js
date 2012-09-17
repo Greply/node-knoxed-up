@@ -4,7 +4,6 @@
     var fs_tools    = require('fs-extended');
     var xml2js      = require('xml2js');
     var async       = require('async');
-    var crypto      = require('crypto');
     var Buffer      = require('buffer').Buffer;
 
     var KnoxedUp = function(config) {
@@ -200,60 +199,6 @@
 
     /**
      *
-     * @param string   sFile     Path to File
-     * @param string   sType     ascii, utf8, ics2, base64, binary
-     * @param function fCallback Buffer containing full contents of File
-     */
-    KnoxedUp.prototype.getFileBuffer = function(sFile, sType, fDoneCallback, fBufferCallback) {
-        fDoneCallback   = typeof fDoneCallback   == 'function' ? fDoneCallback    : function() {};
-        fBufferCallback = typeof fBufferCallback == 'function' ? fBufferCallback  : function() {};
-        sType           = sType || 'utf8';
-
-        var oSHASum  = crypto.createHash('sha1');
-        if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
-            fs.readFile(this.getLocalPath(sFile), sType, function(oError, oBuffer) {
-                oSHASum.update(oBuffer);
-                fDoneCallback(oBuffer, oSHASum.digest('hex'));
-            });
-
-            return {
-                abort: function() {
-                    console.error('ABORT!');
-                }
-            }
-        } else {
-            var oRequest = this.get('/' + sFile);
-            oRequest.on('response', function(oResponse) {
-                var oBuffer  = new Buffer(parseInt(oResponse.headers['content-length'], 10));
-                var iBuffer  = 0;
-                var iWritten = 0;
-
-                if(oResponse.statusCode == 400) {
-                    console.error('error', oResponse.statusCode);
-                }
-
-                oResponse.setEncoding(sType);
-                oResponse
-                    .on('data', function(sChunk){
-                        iWritten = oBuffer.write(sChunk, iBuffer, sType);
-                        iBuffer += iWritten;
-                        fBufferCallback(oBuffer, iBuffer, iWritten);
-                    })
-                    .on('error', function(oError){
-                        console.error('error', oError);
-                    })
-                    .on('end', function(){
-                        oSHASum.update(oBuffer);
-                        fDoneCallback(oBuffer, oSHASum.digest('hex'));
-                    });
-            }).end();
-        }
-
-        return oRequest;
-    };
-
-    /**
-     *
      * @param array    aFiles    - Array of filenames to retrieve
      * @param function fCallback - Contents object with filename as key and file contents as value
      */
@@ -441,28 +386,56 @@
         fBufferCallback = typeof fBufferCallback == 'function' ? fBufferCallback  : function() {};
 
         var sTempFile  = '/tmp/' + sFile.split('/').pop();
-        var oStream    = fs.createWriteStream(sTempFile, {
-            flags:      'w',
-            encoding:   sType
-        });
 
-        var oRequest   = this.getFileBuffer(sFile, sType, function(oBuffer, sHash) {
-            if (KnoxedUp.isLocal()) {
-                oStream.write(oBuffer, sType);
-            }
-
-            oStream.end();
-
-            var sFinalFile = '/tmp/' + sHash + sExtension;
-            fs_tools.moveFile(sTempFile, sFinalFile, function() {
-                fs.chmod(sFinalFile, 0777, function() {
-                    fCallback(sFinalFile, oBuffer, sHash);
+        if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
+            fs_tools.hashFile(this.getLocalPath(sFile), function(oError, sHash) {
+                var sFinalFile = '/tmp/' + sHash + sExtension;
+                fs_tools.copyFile(this.getLocalPath(sFile), sFinalFile, function() {
+                    fs.chmod(sFinalFile, 0777, function() {
+                        fCallback(sFinalFile, sHash);
+                    });
                 });
             });
-        }, function(oBuffer, iLength, iWritten) {
-            oStream.write(oBuffer.slice(iLength - iWritten, iLength), sType);
-            fBufferCallback(oBuffer, iLength, iWritten);
-        });
+        } else {
+            var oStream    = fs.createWriteStream(sTempFile, {
+                flags:      'w',
+                encoding:   sType
+            });
+
+            var oRequest = this.get('/' + sFile);
+            oRequest.on('response', function(oResponse) {
+                var oBuffer  = new Buffer(parseInt(oResponse.headers['content-length'], 10));
+                var iBuffer  = 0;
+                var iWritten = 0;
+
+                if(oResponse.statusCode == 400) {
+                    console.error('error', oResponse.statusCode);
+                }
+
+                oResponse.setEncoding(sType);
+                oResponse
+                    .on('data', function(sChunk){
+                        iWritten = oBuffer.write(sChunk, iBuffer, sType);
+                        iBuffer += iWritten;
+                        oStream.write(oBuffer.slice(iBuffer - iWritten, iBuffer), sType);
+                    })
+                    .on('error', function(oError){
+                        console.error('error', oError);
+                    })
+                    .on('end', function(){
+                        oStream.end();
+
+                        fs_tools.hashFile(sTempFile, function(oError, sHash) {
+                            var sFinalFile = '/tmp/' + sHash + sExtension;
+                            fs_tools.moveFile(sTempFile, sFinalFile, function() {
+                                fs.chmod(sFinalFile, 0777, function() {
+                                    fCallback(sFinalFile, sHash);
+                                });
+                            });
+                        });
+                    });
+            }).end();
+        }
 
         return oRequest;
     };
@@ -482,18 +455,13 @@
                 fCallback(sHash);
             });
         } else {
-            var oSHASum   = crypto.createHash('sha1');
-            var oRequest = this.get(sFile);
-            oRequest.on('response', function(oResponse) {
-                oResponse.setEncoding(sType);
-                oResponse
-                    .on('data', function(sChunk){
-                        oSHASum.update(sChunk);
-                    })
-                    .on('end', function(){
-                        fCallback(oSHASum.digest('hex'));
+            this.toTemp(sFile, sType, function(sTempFile) {
+                fs_tools.hashFile(sTempFile, function(oError, sHash) {
+                    fs.unlink(sTempFile, function() {
+                        fCallback(sHash);
                     });
-            }).end();
+                });
+            });
         }
     };
 
