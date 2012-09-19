@@ -390,17 +390,15 @@
      * @param string   sType     Binary or (?)
      * @param function fCallback - Path of Temp File
      */
-    KnoxedUp.prototype.toTemp = function(sFile, sType, sExtension, fCallback, fBufferCallback) {
+    KnoxedUp.prototype.toTemp = function(sFile, sType, sExtension, fCallback) {
         sType           = sType || 'binary';
 
         if (typeof sExtension == 'function') {
-            fBufferCallback   = fCallback;
             fCallback         = sExtension;
             sExtension        = path.extname(sFile);
         }
 
         fCallback       = typeof fCallback       == 'function' ? fCallback        : function() {};
-        fBufferCallback = typeof fBufferCallback == 'function' ? fBufferCallback  : function() {};
 
         var sTempFile  = '/tmp/' + sFile.split('/').pop();
 
@@ -414,47 +412,60 @@
                 });
             });
         } else {
-            var oStream    = fs.createWriteStream(sTempFile, {
-                flags:      'w',
-                encoding:   sType
-            });
-
-            var oRequest = this.get('/' + sFile);
-            oRequest.on('response', function(oResponse) {
-                var oBuffer  = new Buffer(parseInt(oResponse.headers['content-length'], 10));
-                var iBuffer  = 0;
-                var iWritten = 0;
-
-                if(oResponse.statusCode == 400) {
-                    console.error('error', oResponse.statusCode);
-                }
-
-                oResponse.setEncoding(sType);
-                oResponse
-                    .on('data', function(sChunk){
-                        iWritten = oBuffer.write(sChunk, iBuffer, sType);
-                        iBuffer += iWritten;
-                        oStream.write(oBuffer.slice(iBuffer - iWritten, iBuffer), sType);
-                    })
-                    .on('error', function(oError){
-                        console.error('error', oError);
-                    })
-                    .on('end', function(){
-                        oStream.end();
-
-                        fsX.hashFile(sTempFile, function(oError, sHash) {
-                            var sFinalFile = '/tmp/' + sHash + sExtension;
-                            fsX.moveFile(sTempFile, sFinalFile, function() {
-                                fs.chmod(sFinalFile, 0777, function() {
-                                    fCallback(sFinalFile, sHash);
-                                });
+            fs.exists(sTempFile, function(bExists) {
+                if (bExists) {
+                    fsX.hashFile(sTempFile, function(oError, sHash) {
+                        var sFinalFile = '/tmp/' + sHash + sExtension;
+                        fsX.copyFile(sTempFile, sFinalFile, function() {
+                            fs.chmod(sFinalFile, 0777, function() {
+                                fCallback(sFinalFile, sHash);
                             });
                         });
                     });
-            }).end();
-        }
+                } else {
+                    var oStream    = fs.createWriteStream(sTempFile, {
+                        flags:      'w',
+                        encoding:   sType
+                    });
 
-        return oRequest;
+                    var oRequest = this.get('/' + sFile);
+                    oRequest.on('response', function(oResponse) {
+                        var oBuffer  = new Buffer(parseInt(oResponse.headers['content-length'], 10));
+                        var iBuffer  = 0;
+                        var iWritten = 0;
+
+                        if(oResponse.statusCode == 400) {
+                            console.error('error', oResponse.statusCode);
+                        }
+
+                        oResponse.setEncoding(sType);
+                        oResponse
+                            .on('data', function(sChunk){
+                                    iWritten = oBuffer.write(sChunk, iBuffer, sType);
+                                    iBuffer += iWritten;
+                                    oStream.write(oBuffer.slice(iBuffer - iWritten, iBuffer), sType);
+                                })
+                            .on('error', function(oError){
+                                    console.error('error', oError);
+                                })
+                            .on('end', function(){
+                                    oStream.end();
+
+                                    fsX.hashFile(sTempFile, function(oError, sHash) {
+                                        var sFinalFile = '/tmp/' + sHash + sExtension;
+                                        fsX.moveFile(sTempFile, sFinalFile, function() {
+                                            fs.chmod(sFinalFile, 0777, function() {
+                                                fCallback(sFinalFile, sHash);
+                                            });
+                                        });
+                                    });
+                                });
+                    }).end();
+
+                    return oRequest;
+                }
+            });
+        }
     };
 
     /**
