@@ -2,6 +2,7 @@
     var path        = require('path');
     var Knox        = require('knox');
     var fsX         = require('fs-extended');
+    var syslog      = require('syslog-console').init('KnoxedUp');
     var xml2js      = require('xml2js');
     var async       = require('async');
     var Buffer      = require('buffer').Buffer;
@@ -398,6 +399,7 @@
             sExtension        = path.extname(sFile);
         }
 
+        syslog.debug({action: 'KnoxedUp.toTemp', file: sFile, type: sType, extension: sExtension});
         fCallback       = typeof fCallback       == 'function' ? fCallback        : function() {};
 
         var sTempFile  = '/tmp/' + sFile.split('/').pop();
@@ -414,58 +416,83 @@
         } else {
             fs.exists(sTempFile, function(bExists) {
                 if (bExists) {
-                    fsX.hashFile(sTempFile, function(oError, sHash) {
-                        var sFinalFile = '/tmp/' + sHash + sExtension;
-                        fsX.copyFile(sTempFile, sFinalFile, function() {
-                            fs.chmod(sFinalFile, 0777, function() {
-                                fCallback(sFinalFile, sHash);
-                            });
-                        });
-                    });
+                    this._fromTemp(sTempFile, sExtension, fCallback);
                 } else {
-                    var oStream    = fs.createWriteStream(sTempFile, {
-                        flags:      'w',
-                        encoding:   sType
-                    });
-
-                    var oRequest = this.get('/' + sFile);
-                    oRequest.on('response', function(oResponse) {
-                        var oBuffer  = new Buffer(parseInt(oResponse.headers['content-length'], 10));
-                        var iBuffer  = 0;
-                        var iWritten = 0;
-
-                        if(oResponse.statusCode == 400) {
-                            console.error('error', oResponse.statusCode);
+                    fs.exists(sTempFile + sExtension, function(bExists) {
+                        if (bExists) {
+                            this._fromTemp(sTempFile + sExtension, sExtension, fCallback);
+                        } else {
+                            this._toTemp(sTempFile, sFile, sType, sExtension, fCallback);
                         }
+                    }.bind(this));
+                }
+            }.bind(this));
+        }
+    };
 
-                        oResponse.setEncoding(sType);
-                        oResponse
-                            .on('data', function(sChunk){
-                                    iWritten = oBuffer.write(sChunk, iBuffer, sType);
-                                    iBuffer += iWritten;
-                                    oStream.write(oBuffer.slice(iBuffer - iWritten, iBuffer), sType);
-                                })
-                            .on('error', function(oError){
-                                    console.error('error', oError);
-                                })
-                            .on('end', function(){
-                                    oStream.end();
+    KnoxedUp.prototype._fromTemp = function(sTempFile, sExtension, fCallback) {
+        syslog.debug({action: 'KnoxedUp._fromTemp', file: sTempFile});
+        var iStart = syslog.timeStart();
+        fsX.hashFile(sTempFile, function(oError, sHash) {
+            var sFinalFile = '/tmp/' + sHash + sExtension;
+            fsX.copyFile(sTempFile, sFinalFile, function() {
+                fs.chmod(sFinalFile, 0777, function() {
+                    syslog.timeStop(iStart, {action: 'KnoxedUp._fromTemp.done', hash: sHash, file: sFinalFile});
+                    fCallback(sFinalFile, sHash);
+                });
+            });
+        });
+    }
 
-                                    fsX.hashFile(sTempFile, function(oError, sHash) {
-                                        var sFinalFile = '/tmp/' + sHash + sExtension;
-                                        fsX.moveFile(sTempFile, sFinalFile, function() {
-                                            fs.chmod(sFinalFile, 0777, function() {
-                                                fCallback(sFinalFile, sHash);
-                                            });
-                                        });
+
+    KnoxedUp.prototype._toTemp = function(sTempFile, sFile, sType, sExtension, fCallback) {
+        var iStart = syslog.timeStart();
+        var oStream    = fs.createWriteStream(sTempFile, {
+            flags:      'w',
+            encoding:   sType
+        });
+
+        syslog.debug({action: 'KnoxedUp._toTemp', file: sTempFile, s3: sFile});
+
+        var oRequest = this.get('/' + sFile);
+        oRequest.on('response', function(oResponse) {
+            syslog.debug({action: 'KnoxedUp._toTemp.downloading', size: oResponse.headers['content-length']});
+            var oBuffer  = new Buffer(parseInt(oResponse.headers['content-length'], 10));
+            var iBuffer  = 0;
+            var iWritten = 0;
+
+            if(oResponse.statusCode == 400) {
+                syslog.error({action: 'KnoxedUp._toTemp.download.error', status: oResponse.statusCode});
+                fCallback();
+            } else {
+                oResponse.setEncoding(sType);
+                oResponse
+                    .on('data', function(sChunk){
+                            iWritten = oBuffer.write(sChunk, iBuffer, sType);
+                            iBuffer += iWritten;
+                            oStream.write(oBuffer.slice(iBuffer - iWritten, iBuffer), sType);
+                        })
+                    .on('error', function(oError){
+                            syslog.error({action: 'KnoxedUp._toTemp.download.error', error:oError});
+                            fCallback();
+                        })
+                    .on('end', function(){
+                            oStream.end();
+                            syslog.debug({action: 'KnoxedUp._toTemp.downloaded', file: sTempFile});
+                            fsX.hashFile(sTempFile, function(oError, sHash) {
+                                var sFinalFile = '/tmp/' + sHash + sExtension;
+                                fsX.moveFile(sTempFile, sFinalFile, function() {
+                                    fs.chmod(sFinalFile, 0777, function() {
+                                        syslog.timeStop(iStart, {action: 'KnoxedUp._toTemp.done', hash: sHash, file: sFinalFile});
+                                        fCallback(sFinalFile, sHash);
                                     });
                                 });
-                    }).end();
+                            });
+                        });
+            }
+        }).end();
 
-                    return oRequest;
-                }
-            });
-        }
+        return oRequest;
     };
 
     /**
