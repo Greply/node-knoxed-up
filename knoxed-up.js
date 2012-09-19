@@ -284,7 +284,7 @@
             this.Client.put(sTo, oHeaders).on('response', function(oResponse) {
                 oResponse.setEncoding('utf8');
                 oResponse.on('data', function(oChunk){
-                    fCallback(oChunk);
+                    fCallback(null, oChunk);
                 });
             }).end();
         }
@@ -323,7 +323,7 @@
             oDestination.put(sTo, oOptions).on('response', function(oResponse) {
                 oResponse.setEncoding('utf8');
                 oResponse.on('data', function(oChunk){
-                    fCallback(oChunk);
+                    fCallback(null, oChunk);
                 });
             }).end();
         }
@@ -345,9 +345,9 @@
                 fsX.moveFile(sFromLocal, sToLocal, fCallback);
             });
         } else {
-            this.copyFileToBucket(sFrom, sBucket, sTo, function(oChunk) {
+            this.copyFileToBucket(sFrom, sBucket, sTo, function(oError, oChunk) {
                 this.Client.del(sFrom).end();
-                fCallback(oChunk);
+                fCallback(oError, oChunk);
             }.bind(this));
         }
     };
@@ -376,9 +376,9 @@
             if (sFrom == sTo) {
                 fCallback();
             } else {
-                this.copyFile(sFrom, sTo, oHeaders, function(oChunk) {
+                this.copyFile(sFrom, sTo, oHeaders, function(oError, oChunk) {
                     this.Client.del(sFrom).end();
-                    fCallback(oChunk);
+                    fCallback(oError, oChunk);
                 }.bind(this));
             }
         }
