@@ -481,7 +481,9 @@
 
         var oRequest = this.get('/' + sFile);
         oRequest.on('response', function(oResponse) {
-            syslog.debug({action: 'KnoxedUp._toTemp.downloading', size: oResponse.headers['content-length'], status: oResponse.statusCode});
+            var iLengthTotal      = parseInt(oResponse.headers['content-length'], 10);
+            var iLengthDownloaded = 0;
+            syslog.debug({action: 'KnoxedUp._toTemp.downloading', size: iLengthTotal, status: oResponse.statusCode});
 
             if(oResponse.statusCode == 400) {
                 syslog.error({action: 'KnoxedUp._toTemp.download.error', status: oResponse.statusCode});
@@ -490,6 +492,7 @@
                 oResponse.setEncoding(sType);
                 oResponse
                     .on('data', function(sChunk){
+                        iLengthDownloaded += sChunk.length;
                         oStream.write(sChunk, sType);
                     })
                     .on('error', function(oError){
@@ -498,14 +501,22 @@
                     })
                     .on('end', function(){
                         oStream.end();
-                        syslog.debug({action: 'KnoxedUp._toTemp.downloaded', file: sTempFile});
-                        fsX.hashFile(sTempFile, function(oError, sHash) {
-                            var sFinalFile = '/tmp/' + sHash + sExtension;
-                            fsX.moveFile(sTempFile, sFinalFile, function() {
-                                syslog.timeStop(iStart, {action: 'KnoxedUp._toTemp.done', hash: sHash, file: sFinalFile});
-                                fCallback(sFinalFile, sHash);
+
+                        if (iLengthDownloaded < iLengthTotal) {
+                            syslog.error({action: 'KnoxedUp._toTemp.download.error', error:'Download Length did not match Content Length', length: {download: iLengthDownloaded, total: iLengthTotal}});
+                            fsX.removeDirectory(sTempFile, function() {
+                                fCallback();
                             });
-                        });
+                        } else {
+                            syslog.debug({action: 'KnoxedUp._toTemp.downloaded', file: sTempFile});
+                            fsX.hashFile(sTempFile, function(oError, sHash) {
+                                var sFinalFile = '/tmp/' + sHash + sExtension;
+                                fsX.moveFile(sTempFile, sFinalFile, function() {
+                                    syslog.timeStop(iStart, {action: 'KnoxedUp._toTemp.done', hash: sHash, file: sFinalFile});
+                                    fCallback(sFinalFile, sHash);
+                                });
+                            });
+                        }
                     });
             }
         }).end();
