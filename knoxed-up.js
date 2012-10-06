@@ -457,7 +457,7 @@
                 });
             });
         });
-    }
+    };
 
 
     /**
@@ -576,6 +576,27 @@
         var oTempFiles = {};
         async.forEach(aFiles, function (sFile, fCallbackAsync) {
             this.toTemp(sFile, sType, function(sTempFile) {
+                oTempFiles[sFile] = sTempFile;
+                fCallbackAsync(null);
+            }.bind(this))
+        }.bind(this), function(oError) {
+            fCallback(oError, oTempFiles);
+        }.bind(this));
+    };
+
+    /**
+     *
+     * @param {Array}    aFiles    Array if file paths to download to temp
+     * @param {String}   sType     Binary or (?)
+     * @param {String}   sExtension
+     * @param {Function} fCallback Object of Temp Files with S3 file names as Key
+     */
+    KnoxedUp.prototype.filesToTempWithExtension = function(aFiles, sType, sExtension, fCallback) {
+        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
+
+        var oTempFiles = {};
+        async.forEach(aFiles, function (sFile, fCallbackAsync) {
+            this.toTemp(sFile, sType, sExtension, function(sTempFile) {
                 oTempFiles[sFile] = sTempFile;
                 fCallbackAsync(null);
             }.bind(this))
