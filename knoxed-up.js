@@ -31,9 +31,10 @@
 
     /**
      *
-     * @param string   sPrefix   Path of folder to list
-     * @param function fCallback Array of Objects in that folder
-     * @param function fError
+     * @param {String}   sPrefix   Path of folder to list
+     * @param {Integer}  iMax      Maximum number of files to show
+     * @param {Function} fCallback Array of Objects in that folder
+     * @param {Function} fError
      */
     KnoxedUp.prototype.getFileList = function(sPrefix, iMax, fCallback, fError) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
@@ -132,8 +133,8 @@
 
     /**
      *
-     * @param string sFile       Path to file
-     * @param function fCallback boolean
+     * @param {String} sFile       Path to file
+     * @param {Function} fCallback boolean
      */
     KnoxedUp.prototype._localFileExists = function(sFile, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
@@ -143,8 +144,8 @@
 
     /**
      *
-     * @param string sFile       Path to file
-     * @param function fCallback boolean
+     * @param {String} sFile       Path to file
+     * @param {Function} fCallback boolean
      */
     KnoxedUp.prototype.fileExists = function(sFile, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
@@ -160,8 +161,10 @@
 
     /**
      *
-     * @param string   sFile     Path to File
-     * @param function fCallback Full contents of File
+     * @param {String}   sFrom
+     * @param {String}   sTo
+     * @param {Object}   oHeaders
+     * @param {Function} fCallback Full contents of File
      */
     KnoxedUp.prototype.putStream = function(sFrom, sTo, oHeaders, fCallback) {
         fCallback = typeof oHeaders == 'function' ? oHeaders : fCallback;
@@ -192,8 +195,8 @@
 
     /**
      *
-     * @param string   sFile     Path to File
-     * @param function fCallback Full contents of File
+     * @param {String}   sFile     Path to File
+     * @param {Function} fCallback Full contents of File
      */
     KnoxedUp.prototype.getFile = function(sFile, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
@@ -217,8 +220,8 @@
 
     /**
      *
-     * @param array    aFiles    - Array of filenames to retrieve
-     * @param function fCallback - Contents object with filename as key and file contents as value
+     * @param {Array}    aFiles    - Array of filenames to retrieve
+     * @param {Function} fCallback - Contents object with filename as key and file contents as value
      */
     KnoxedUp.prototype.getFiles = function(aFiles, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
@@ -243,9 +246,9 @@
 
     /**
      *
-     * @param string   sFile
-     * @param object   oHeaders
-     * @param function fCallback
+     * @param {String}   sFile
+     * @param {Object}   oHeaders
+     * @param {Function} fCallback
      */
     KnoxedUp.prototype.updateHeaders = function(sFile, oHeaders, fCallback) {
         this.copyFile(sFile, sFile, oHeaders, fCallback);
@@ -253,9 +256,10 @@
 
     /**
      *
-     * @param string   sFrom     Path of File to Move
-     * @param string   sTo       Destination Path of File
-     * @param function fCallback
+     * @param {String}   sFrom     Path of File to Move
+     * @param {String}   sTo       Destination Path of File
+     * @param {Object}   oHeaders
+     * @param {Function} fCallback
      */
     KnoxedUp.prototype.copyFile = function(sFrom, sTo, oHeaders, fCallback) {
         fCallback = typeof oHeaders == 'function' ? oHeaders : fCallback;
@@ -293,9 +297,10 @@
 
     /**
      *
-     * @param string   sFrom     Path of File to Move
-     * @param string   sTo       Destination Path of File
-     * @param function fCallback
+     * @param {String}   sFrom     Path of File to Move
+     * @param {String}   sBucket   Destination Bucket
+     * @param {String}   sTo       Destination Path of File
+     * @param {Function} fCallback
      */
     KnoxedUp.prototype.copyFileToBucket = function(sFrom, sBucket, sTo, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
@@ -332,9 +337,10 @@
 
     /**
      *
-     * @param string   sFrom     Path of File to Move
-     * @param string   sTo       Destination Path of File
-     * @param function fCallback
+     * @param {String}   sFrom     Path of File to Move
+     * @param {String}   sBucket   Destination Bucket
+     * @param {String}   sTo       Destination Path of File
+     * @param {Function} fCallback
      */
     KnoxedUp.prototype.moveFileToBucket = function(sFrom, sBucket, sTo, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
@@ -355,9 +361,10 @@
 
     /**
      *
-     * @param string   sFrom     Path of File to Move
-     * @param string   sTo       Destination Path of File
-     * @param function fCallback
+     * @param {String}   sFrom     Path of File to Move
+     * @param {String}   sTo       Destination Path of File
+     * @param {Object}   oHeaders
+     * @param {Function} fCallback
      */
     KnoxedUp.prototype.moveFile = function(sFrom, sTo, oHeaders, fCallback) {
         fCallback = typeof oHeaders == 'function' ? oHeaders : fCallback;
@@ -387,9 +394,10 @@
 
     /**
      *
-     * @param string   sFile     Path to File to Download
-     * @param string   sType     Binary or (?)
-     * @param function fCallback - Path of Temp File
+     * @param {String}   sFile     Path to File to Download
+     * @param {String}   sType     Binary or (?)
+     * @param {String}   sExtension
+     * @param {Function} fCallback - Path of Temp File
      */
     KnoxedUp.prototype.toTemp = function(sFile, sType, sExtension, fCallback) {
         sType           = sType || 'binary';
@@ -430,6 +438,13 @@
         }
     };
 
+    /**
+     *
+     * @param {String} sTempFile
+     * @param {String} sExtension
+     * @param {Function} fCallback
+     * @private
+     */
     KnoxedUp.prototype._fromTemp = function(sTempFile, sExtension, fCallback) {
         syslog.debug({action: 'KnoxedUp._fromTemp', file: sTempFile});
         var iStart = syslog.timeStart();
@@ -445,6 +460,15 @@
     }
 
 
+    /**
+     *
+     * @param {String} sTempFile
+     * @param {String} sFile
+     * @param {String} sType
+     * @param {String} sExtension
+     * @param {Function} fCallback
+     * @private
+     */
     KnoxedUp.prototype._toTemp = function(sTempFile, sFile, sType, sExtension, fCallback) {
         var iStart = syslog.timeStart();
         var oStream    = fs.createWriteStream(sTempFile, {
@@ -497,9 +521,9 @@
 
     /**
      *
-     * @param string   sFile     Path to File to Download
-     * @param string   sType     Binary or (?)
-     * @param function fCallback - Path of Temp File
+     * @param {String}   sFile     Path to File to Download
+     * @param {String}   sType     Binary or (?)
+     * @param {Function} fCallback - Path of Temp File
      */
     KnoxedUp.prototype.toSha1 = function(sFile, sType, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback : function() {};
@@ -522,9 +546,9 @@
 
     /**
      *
-     * @param array    aFiles    Array if file paths to download to temp
-     * @param string   sType     Binary or (?)
-     * @param function fCallback Object of Temp Files with S3 file names as Key
+     * @param {Array}    aFiles    Array if file paths to download to temp
+     * @param {String}   sType     Binary or (?)
+     * @param {Function} fCallback Object of Temp Files with S3 file names as Key
      */
     KnoxedUp.prototype.filesToSha1 = function(aFiles, sType, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
@@ -542,9 +566,9 @@
 
     /**
      *
-     * @param array    aFiles    Array if file paths to download to temp
-     * @param string   sType     Binary or (?)
-     * @param function fCallback Object of Temp Files with S3 file names as Key
+     * @param {Array}    aFiles    Array if file paths to download to temp
+     * @param {String}   sType     Binary or (?)
+     * @param {Function} fCallback Object of Temp Files with S3 file names as Key
      */
     KnoxedUp.prototype.filesToTemp = function(aFiles, sType, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
