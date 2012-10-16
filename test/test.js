@@ -1,5 +1,6 @@
     var KnoxedUp = require("../knoxed-up");
     var fs       = require('fs');
+    var fsX      = require('fs-extended');
     var testCase = require('nodeunit').testCase;
     var syslog   = require('syslog-console').init('KnoxedUp');
 
@@ -18,7 +19,31 @@
     var sPath     = aPath.join('/') + '/' + sFileHash;
 
     exports["Test Download To Temp"] = {
+        tearDown: function (callback) {
+            // clean up
+            fsX.removeDirectory('/tmp/' + sFileHash, function() {
+                fsX.removeDirectory('/tmp/' + sFileHash + '.avi', function() {
+                    callback();
+                });
+            });
+        },
+
         "To Temp": function(test) {
+            test.expect(4);
+            test.ok(S3 instanceof KnoxedUp, "Instance created");
+
+            S3.toTemp(sPath, 'binary', function(sTempFile, sHash) {
+                test.equal(sHash,     sFileHash,          "Downloaded file has Correct Hash");
+                test.equal(sTempFile, '/tmp/' + sFileHash, "Temp file is Named Correctly");
+
+                fs.exists(sTempFile, function(bExists) {
+                    test.ok(bExists, "File Exists in /tmp");
+                    test.done();
+                });
+            });
+        },
+
+        "To Temp With Extension": function(test) {
             test.expect(4);
             test.ok(S3 instanceof KnoxedUp, "Instance created");
 
