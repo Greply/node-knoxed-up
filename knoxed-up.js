@@ -485,7 +485,7 @@
             var iLengthDownloaded = 0;
             syslog.debug({action: 'KnoxedUp._toTemp.downloading', size: iLengthTotal, status: oResponse.statusCode});
 
-            if(oResponse.statusCode == 400) {
+            if(oResponse.statusCode > 399) {
                 syslog.error({action: 'KnoxedUp._toTemp.download.error', status: oResponse.statusCode});
                 fCallback();
             } else {
