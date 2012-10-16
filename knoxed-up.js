@@ -256,6 +256,44 @@
 
     /**
      *
+     * @param {String} sFile
+     * @param {Function} fCallback
+     */
+    KnoxedUp.prototype.getHeaders = function(sFile, fCallback) {
+        var oRequest = this.Client.head('/' + sFile);
+        oRequest.on('response', function(oResponse) {
+            syslog.debug({action: 'KnoxedUp.getHeaders', status: oResponse.statusCode});
+
+            if(oResponse.statusCode > 399) {
+                syslog.error({action: 'KnoxedUp.getHeaders.error', status: oResponse.statusCode});
+
+                switch(oResponse.statusCode) {
+                    case 404:
+                        fCallback(new Error('File Not Found'));
+                        break;
+
+                    default:
+                        fCallback(new Error('S3 Error Code ' + oResponse.statusCode));
+                        break;
+                }
+            } else {
+                oResponse
+                    .on('error', function(oError){
+                        syslog.error({action: 'KnoxedUp.getHeaders.error', error: oError});
+                        fCallback(oError);
+                    })
+                    .on('end', function(){
+                        syslog.debug({action: 'KnoxedUp.getHeaders.done', headers: oResponse.headers});
+                        fCallback(null, oResponse.headers);
+                    });
+            }
+        }).end();
+
+        return oRequest;
+    };
+
+    /**
+     *
      * @param {String}   sFrom     Path of File to Move
      * @param {String}   sTo       Destination Path of File
      * @param {Object}   oHeaders
