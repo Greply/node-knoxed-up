@@ -32,7 +32,7 @@
             test.expect(4);
             test.ok(S3 instanceof KnoxedUp, "Instance created");
 
-            S3.toTemp(sPath, 'binary', function(sTempFile, sHash) {
+            S3.toTemp(sPath, 'binary', function(oError, sTempFile, sHash) {
                 test.equal(sHash,     sFileHash,          "Downloaded file has Correct Hash");
                 test.equal(sTempFile, '/tmp/' + sFileHash, "Temp file is Named Correctly");
 
@@ -47,7 +47,7 @@
             test.expect(4);
             test.ok(S3 instanceof KnoxedUp, "Instance created");
 
-            S3.toTemp(sPath, 'binary', '.avi', function(sTempFile, sHash) {
+            S3.toTemp(sPath, 'binary', '.avi', function(oError, sTempFile, sHash) {
                 test.equal(sHash,     sFileHash,          "Downloaded file has Correct Hash");
                 test.equal(sTempFile, '/tmp/' + sFileHash + '.avi', "Temp file is Named Correctly");
 

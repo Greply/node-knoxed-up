@@ -473,12 +473,27 @@
 
         if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
             fsX.hashFile(this.getLocalPath(sFile), function(oError, sHash) {
-                var sFinalFile = '/tmp/' + sHash + sExtension;
-                fsX.copyFile(this.getLocalPath(sFile), sFinalFile, function() {
-                    fs.chmod(sFinalFile, 0777, function() {
-                        fCallback(sFinalFile, sHash);
+                if (oError) {
+                    syslog.error({action: 'KnoxedUp._fromTemp.hash.error', error: oError});
+                    fCallback(oError);
+                } else {
+                    var sFinalFile = '/tmp/' + sHash + sExtension;
+                    fsX.copyFile(this.getLocalPath(sFile), sFinalFile, function(oError) {
+                        if (oError) {
+                            syslog.error({action: 'KnoxedUp._fromTemp.copy.error', error: oError});
+                            fCallback(oError);
+                        } else {
+                            fs.chmod(sFinalFile, 0777, function(oError) {
+                                if (oError) {
+                                    syslog.error({action: 'KnoxedUp._fromTemp.chmod.error', error: oError});
+                                    fCallback(oError);
+                                } else {
+                                    fCallback(null, sFinalFile, sHash);
+                                }
+                            });
+                        }
                     });
-                });
+                }
             });
         } else {
             fs.exists(sTempFile, function(bExists) {
@@ -508,13 +523,28 @@
         syslog.debug({action: 'KnoxedUp._fromTemp', file: sTempFile});
         var iStart = syslog.timeStart();
         fsX.hashFile(sTempFile, function(oError, sHash) {
-            var sFinalFile = '/tmp/' + sHash + sExtension;
-            fsX.copyFile(sTempFile, sFinalFile, function() {
-                fs.chmod(sFinalFile, 0777, function() {
-                    syslog.timeStop(iStart, {action: 'KnoxedUp._fromTemp.done', hash: sHash, file: sFinalFile});
-                    fCallback(sFinalFile, sHash);
+            if (oError) {
+                syslog.error({action: 'KnoxedUp._fromTemp.hash.error', error: oError});
+                fCallback(oError);
+            } else {
+                var sFinalFile = '/tmp/' + sHash + sExtension;
+                fsX.copyFile(sTempFile, sFinalFile, function(oError) {
+                    if (oError) {
+                        syslog.error({action: 'KnoxedUp._fromTemp.copy.error', error: oError});
+                        fCallback(oError);
+                    } else {
+                        fs.chmod(sFinalFile, 0777, function(oError) {
+                            if (oError) {
+                                syslog.error({action: 'KnoxedUp._fromTemp.chmod.error', error: oError});
+                                fCallback(oError);
+                            } else {
+                                syslog.timeStop(iStart, {action: 'KnoxedUp._fromTemp.done', hash: sHash, file: sFinalFile});
+                                fCallback(sFinalFile, sHash);
+                            }
+                        });
+                    }
                 });
-            });
+            }
         });
     };
 
@@ -540,15 +570,20 @@
 
         oStream.on('close', function() {
             if (iLengthDownloaded < iLengthTotal) {
-                syslog.error({action: 'KnoxedUp._toTemp.download.error', error:'Download Length did not match Content Length', length: {download: iLengthDownloaded, total: iLengthTotal}});
+                var oError = new Error('Download Length did not match Content Length');
+                syslog.error({action: 'KnoxedUp._toTemp.download.error', error: oError, length: {download: iLengthDownloaded, total: iLengthTotal}});
                 fsX.removeDirectory(sTempFile, function() {
-                    fCallback();
+                    fCallback(oError);
                 });
             } else {
                 syslog.debug({action: 'KnoxedUp._toTemp.downloaded', size: iLengthDownloaded, file: sTempFile});
                 fsX.moveFileToHash(sTempFile, '/tmp', sExtension, function(oMoveError, oDestination) {
-                    syslog.timeStop(iStart, {action: 'KnoxedUp._toTemp.done', hash: oDestination.hash, file: oDestination.path});
-                    fCallback(oDestination.path, oDestination.hash);
+                    if (oMoveError) {
+                        fCallback(oMoveError);
+                    } else {
+                        syslog.timeStop(iStart, {action: 'KnoxedUp._toTemp.done', hash: oDestination.hash, file: oDestination.path});
+                        fCallback(null, oDestination.path, oDestination.hash);
+                    }
                 });
             }
         });
@@ -562,7 +597,14 @@
 
             if(oResponse.statusCode > 399) {
                 syslog.error({action: 'KnoxedUp._toTemp.download.error', status: oResponse.statusCode});
-                fCallback();
+                var oError;
+
+                switch(oResponse.statusCode) {
+                    case 404:  oError = new Error('File Not Found');                         break;
+                    default:   oError = new Error('S3 Error Code ' + oResponse.statusCode);  break;
+                }
+                syslog.error({action: 'KnoxedUp._toTemp.download.error', error: oError});
+                fCallback(oError);
             } else {
                 oResponse.setEncoding(sType);
                 oResponse
@@ -572,7 +614,7 @@
                     })
                     .on('error', function(oError){
                         syslog.error({action: 'KnoxedUp._toTemp.download.error', error:oError});
-                        fCallback();
+                        fCallback(oError);
                     })
                     .on('end', function(){
                         oStream.end();
@@ -596,8 +638,12 @@
         if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
             fsX.hashFile(this.getLocalPath(sFile), fCallback);
         } else {
-            this.toTemp(sFile, sType, function(sTempFile) {
-                fsX.hashFile(sTempFile, fCallback);
+            this.toTemp(sFile, sType, function(oError, sTempFile, sHash) {
+                if (oError) {
+                    fCallback(oError);
+                } else {
+                    fCallback(null, sHash);
+                }
             });
         }
     };
@@ -637,9 +683,13 @@
 
         var oTempFiles = {};
         async.forEach(aFiles, function (sFile, fCallbackAsync) {
-            this.toTemp(sFile, sType, function(sTempFile) {
-                oTempFiles[sFile] = sTempFile;
-                fCallbackAsync(null);
+            this.toTemp(sFile, sType, function(oError, sTempFile) {
+                if (oError) {
+                    fCallbackAsync(oError);
+                } else {
+                    oTempFiles[sFile] = sTempFile;
+                    fCallbackAsync(null);
+                }
             }.bind(this))
         }.bind(this), function(oError) {
             fCallback(oError, oTempFiles);
@@ -658,9 +708,13 @@
 
         var oTempFiles = {};
         async.forEach(aFiles, function (sFile, fCallbackAsync) {
-            this.toTemp(sFile, sType, sExtension, function(sTempFile) {
-                oTempFiles[sFile] = sTempFile;
-                fCallbackAsync(null);
+            this.toTemp(sFile, sType, sExtension, function(oError, sTempFile) {
+                if (oError) {
+                    fCallbackAsync(oError);
+                } else {
+                    oTempFiles[sFile] = sTempFile;
+                    fCallbackAsync(null);
+                }
             }.bind(this))
         }.bind(this), function(oError) {
             fCallback(oError, oTempFiles);
