@@ -525,13 +525,9 @@
                 });
             } else {
                 syslog.debug({action: 'KnoxedUp._toTemp.downloaded', size: iLengthDownloaded, file: sTempFile});
-                fsX.hashFile(sTempFile, function(oError, sHash) {
-                    syslog.debug({action: 'KnoxedUp._toTemp.hashed', error: oError, hash: sHash});
-                    var sFinalFile = '/tmp/' + sHash + sExtension;
-                    fsX.moveFile(sTempFile, sFinalFile, function() {
-                        syslog.timeStop(iStart, {action: 'KnoxedUp._toTemp.done', hash: sHash, file: sFinalFile});
-                        fCallback(sFinalFile, sHash);
-                    });
+                fsX.moveFileToHash(sTempFile, '/tmp', sExtension, function(oMoveError, oDestination) {
+                    syslog.timeStop(iStart, {action: 'KnoxedUp._toTemp.done', hash: oDestination.hash, file: oDestination.path});
+                    fCallback(oDestination.path, oDestination.hash);
                 });
             }
         });
