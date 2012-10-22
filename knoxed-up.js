@@ -205,15 +205,29 @@
             fCallback(fs.readFileSync(this.getLocalPath(sFile)));
         } else {
             this.get(sFile).on('response', function(oResponse) {
-                var sContents = '';
-                oResponse.setEncoding('utf8');
-                oResponse
-                    .on('data', function(sChunk){
-                        sContents += sChunk;
-                    })
-                    .on('end', function(sChunk){
-                        fCallback(sContents);
-                    });
+                if(oResponse.statusCode > 399) {
+                    syslog.error({action: 'KnoxedUp.getFile.error', status: oResponse.statusCode});
+
+                    switch(oResponse.statusCode) {
+                        case 404:
+                            fCallback(new Error('File Not Found'));
+                            break;
+
+                        default:
+                            fCallback(new Error('S3 Error Code ' + oResponse.statusCode));
+                            break;
+                    }
+                } else {
+                    var sContents = '';
+                    oResponse.setEncoding('utf8');
+                    oResponse
+                        .on('data', function(sChunk){
+                            sContents += sChunk;
+                        })
+                        .on('end', function(sChunk){
+                            fCallback(null, sContents);
+                        });
+                }
             }).end();
         }
     };
@@ -230,9 +244,13 @@
         var iFiles    = aFiles.length;
         if (iFiles) {
             async.forEach(aFiles, function(sFile, fGetCallback) {
-                this.getFile(sFile, function(sContents) {
-                    oContents[sFile] = sContents;
-                    fGetCallback(null);
+                this.getFile(sFile, function(oError, sContents) {
+                    if (oError) {
+                        fGetCallback(oError);
+                    } else {
+                        oContents[sFile] = sContents;
+                        fGetCallback(null);
+                    }
                 });
             }.bind(this), function(oError) {
                 if (oError) {
@@ -300,12 +318,12 @@
      * @param {Function} fCallback
      */
     KnoxedUp.prototype.copyFile = function(sFrom, sTo, oHeaders, fCallback) {
-        fCallback = typeof oHeaders == 'function' ? oHeaders : fCallback;
-
         if (typeof oHeaders == 'function') {
             fCallback = oHeaders;
             oHeaders  = {};
         }
+
+        fCallback = typeof fCallback == 'function' ? fCallback : function() {};
 
         if (KnoxedUp.isLocal() && this._localFileExists(sFrom)) {
             var sFromLocal = this.getLocalPath(sFrom);
@@ -326,6 +344,9 @@
 
             this.Client.put(sTo, oHeaders).on('response', function(oResponse) {
                 oResponse.setEncoding('utf8');
+                oResponse.on('error', function(oError){
+                    fCallback(oError);
+                });
                 oResponse.on('data', function(oChunk){
                     fCallback(null, oChunk);
                 });
@@ -573,14 +594,10 @@
         sType     = sType || 'binary';
 
         if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
-            fsX.hashFile(this.getLocalPath(sFile), function(oError, sHash) {
-                fCallback(sHash);
-            });
+            fsX.hashFile(this.getLocalPath(sFile), fCallback);
         } else {
             this.toTemp(sFile, sType, function(sTempFile) {
-                fsX.hashFile(sTempFile, function(oError, sHash) {
-                    fCallback(sHash);
-                });
+                fsX.hashFile(sTempFile, fCallback);
             });
         }
     };
@@ -596,9 +613,13 @@
 
         var oTempFiles = {};
         async.forEach(aFiles, function (sFile, fCallbackAsync) {
-            this.toSha1(sFile, sType, function(sHash) {
-                oTempFiles[sFile] = sHash;
-                fCallbackAsync(null);
+            this.toSha1(sFile, sType, function(oError, sHash) {
+                if (oError) {
+                    fCallbackAsync(oError);
+                } else {
+                    oTempFiles[sFile] = sHash;
+                    fCallbackAsync(null);
+                }
             }.bind(this))
         }.bind(this), function(oError) {
             fCallback(oError, oTempFiles);
