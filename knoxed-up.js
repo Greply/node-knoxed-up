@@ -579,9 +579,7 @@
         } else {
             this.toTemp(sFile, sType, function(sTempFile) {
                 fsX.hashFile(sTempFile, function(oError, sHash) {
-                    fs.unlink(sTempFile, function() {
-                        fCallback(sHash);
-                    });
+                    fCallback(sHash);
                 });
             });
         }
