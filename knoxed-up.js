@@ -167,12 +167,12 @@
      * @param {Function} fCallback Full contents of File
      */
     KnoxedUp.prototype.putStream = function(sFrom, sTo, oHeaders, fCallback) {
-        fCallback = typeof oHeaders == 'function' ? oHeaders : fCallback;
-
         if (typeof oHeaders == 'function') {
             fCallback = oHeaders;
             oHeaders  = {};
         }
+
+        fCallback = typeof fCallback == 'function' ? fCallback : function() {};
 
         if (KnoxedUp.isLocal()) {
             var sToLocal = this.getLocalPath(sTo);
