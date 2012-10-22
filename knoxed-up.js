@@ -426,12 +426,12 @@
      * @param {Function} fCallback
      */
     KnoxedUp.prototype.moveFile = function(sFrom, sTo, oHeaders, fCallback) {
-        fCallback = typeof oHeaders == 'function' ? oHeaders : fCallback;
-
         if (typeof oHeaders == 'function') {
             fCallback = oHeaders;
             oHeaders  = {};
         }
+
+        fCallback = typeof fCallback == 'function' ? fCallback : function() {};
 
         if (KnoxedUp.isLocal() && this._localFileExists(sFrom)) {
             var sFromLocal = this.getLocalPath(sFrom);
@@ -441,7 +441,7 @@
             });
         } else {
             if (sFrom == sTo) {
-                fCallback();
+                fCallback(null);
             } else {
                 this.copyFile(sFrom, sTo, oHeaders, function(oError, oChunk) {
                     this.Client.del(sFrom).end();
