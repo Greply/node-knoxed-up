@@ -539,7 +539,7 @@
                                 fCallback(oError);
                             } else {
                                 syslog.timeStop(iStart, {action: 'KnoxedUp._fromTemp.done', hash: sHash, file: sFinalFile});
-                                fCallback(sFinalFile, sHash);
+                                fCallback(null, sFinalFile, sHash);
                             }
                         });
                     }
@@ -558,10 +558,12 @@
      * @param {Function} fCallback
      * @private
      */
-    KnoxedUp.prototype._toTemp = function(sTempFile, sFile, sType, sExtension, fCallback) {
+    KnoxedUp.prototype._toTemp = function(sTempFile, sFile, sType, sExtension, fCallback, iRetries) {
+            iRetries          = iRetries !== undefined ? iRetries : 3;
         var iStart            = syslog.timeStart();
         var iLengthTotal      = 0;
         var iLengthDownloaded = 0;
+        var bRetry            = false;
         var oStream    = fs.createWriteStream(sTempFile, {
             flags:      'w',
             encoding:   sType,
@@ -569,7 +571,9 @@
         });
 
         oStream.on('close', function() {
-            if (iLengthDownloaded < iLengthTotal) {
+            if (bRetry) {
+                syslog.debug({action: 'KnoxedUp._toTemp.download.halted'});
+            } else if (iLengthDownloaded < iLengthTotal) {
                 var oError = new Error('Download Length did not match Content Length');
                 syslog.error({action: 'KnoxedUp._toTemp.download.error', error: oError, length: {download: iLengthDownloaded, total: iLengthTotal}});
                 fsX.removeDirectory(sTempFile, function() {
@@ -591,6 +595,24 @@
         syslog.debug({action: 'KnoxedUp._toTemp', file: sTempFile, s3: sFile});
 
         var oRequest = this.get('/' + sFile);
+
+        oRequest.on('error', function(oError) {
+            if (oError.message == 'socket hang up') {
+                if (iRetries > 0) {
+                    syslog.warn({action: 'KnoxedUp._toTemp.request.hang_up.retry', file: sFile, retries: iRetries});
+                    bRetry = true;
+                    oStream.destroy();
+                    this._toTemp(sTempFile, sFile, sType, sExtension, fCallback, iRetries - 1);
+                } else {
+                    oStream.destroy();
+                    fCallback(oError);
+                }
+            } else {
+                syslog.error({action: 'KnoxedUp._toTemp.request.error', error: oError, file: sFile});
+                fCallback(oError);
+            }
+        }.bind(this));
+
         oRequest.on('response', function(oResponse) {
             iLengthTotal = parseInt(oResponse.headers['content-length'], 10);
             syslog.debug({action: 'KnoxedUp._toTemp.downloading', size: iLengthTotal, status: oResponse.statusCode});
@@ -603,7 +625,7 @@
                     case 404:  oError = new Error('File Not Found');                         break;
                     default:   oError = new Error('S3 Error Code ' + oResponse.statusCode);  break;
                 }
-                syslog.error({action: 'KnoxedUp._toTemp.download.error', error: oError});
+                syslog.error({action: 'KnoxedUp._toTemp.download.error', error: oError, file: sFile});
                 fCallback(oError);
             } else {
                 oResponse.setEncoding(sType);
@@ -692,6 +714,10 @@
                 }
             }.bind(this))
         }.bind(this), function(oError) {
+            if (oError) {
+                syslog.error({action: 'KnoxedUp.filesToTemp.error', error: oError});
+            }
+
             fCallback(oError, oTempFiles);
         }.bind(this));
     };
@@ -717,6 +743,10 @@
                 }
             }.bind(this))
         }.bind(this), function(oError) {
+            if (oError) {
+                syslog.error({action: 'KnoxedUp.filesToTempWithExtension.error', error: oError});
+            }
+
             fCallback(oError, oTempFiles);
         }.bind(this));
     };
