@@ -508,19 +508,39 @@
      * @private
      */
     KnoxedUp.prototype._toTemp = function(sTempFile, sFile, sType, sExtension, fCallback) {
-        var iStart = syslog.timeStart();
+        var iStart            = syslog.timeStart();
+        var iLengthTotal      = 0;
+        var iLengthDownloaded = 0;
         var oStream    = fs.createWriteStream(sTempFile, {
             flags:      'w',
             encoding:   sType,
             mode:       0777
         });
 
+        oStream.on('close', function() {
+            if (iLengthDownloaded < iLengthTotal) {
+                syslog.error({action: 'KnoxedUp._toTemp.download.error', error:'Download Length did not match Content Length', length: {download: iLengthDownloaded, total: iLengthTotal}});
+                fsX.removeDirectory(sTempFile, function() {
+                    fCallback();
+                });
+            } else {
+                syslog.debug({action: 'KnoxedUp._toTemp.downloaded', size: iLengthDownloaded, file: sTempFile});
+                fsX.hashFile(sTempFile, function(oError, sHash) {
+                    syslog.debug({action: 'KnoxedUp._toTemp.hashed', error: oError, hash: sHash});
+                    var sFinalFile = '/tmp/' + sHash + sExtension;
+                    fsX.moveFile(sTempFile, sFinalFile, function() {
+                        syslog.timeStop(iStart, {action: 'KnoxedUp._toTemp.done', hash: sHash, file: sFinalFile});
+                        fCallback(sFinalFile, sHash);
+                    });
+                });
+            }
+        });
+
         syslog.debug({action: 'KnoxedUp._toTemp', file: sTempFile, s3: sFile});
 
         var oRequest = this.get('/' + sFile);
         oRequest.on('response', function(oResponse) {
-            var iLengthTotal      = parseInt(oResponse.headers['content-length'], 10);
-            var iLengthDownloaded = 0;
+            iLengthTotal = parseInt(oResponse.headers['content-length'], 10);
             syslog.debug({action: 'KnoxedUp._toTemp.downloading', size: iLengthTotal, status: oResponse.statusCode});
 
             if(oResponse.statusCode > 399) {
@@ -539,22 +559,6 @@
                     })
                     .on('end', function(){
                         oStream.end();
-
-                        if (iLengthDownloaded < iLengthTotal) {
-                            syslog.error({action: 'KnoxedUp._toTemp.download.error', error:'Download Length did not match Content Length', length: {download: iLengthDownloaded, total: iLengthTotal}});
-                            fsX.removeDirectory(sTempFile, function() {
-                                fCallback();
-                            });
-                        } else {
-                            syslog.debug({action: 'KnoxedUp._toTemp.downloaded', file: sTempFile});
-                            fsX.hashFile(sTempFile, function(oError, sHash) {
-                                var sFinalFile = '/tmp/' + sHash + sExtension;
-                                fsX.moveFile(sTempFile, sFinalFile, function() {
-                                    syslog.timeStop(iStart, {action: 'KnoxedUp._toTemp.done', hash: sHash, file: sFinalFile});
-                                    fCallback(sFinalFile, sHash);
-                                });
-                            });
-                        }
                     });
             }
         }).end();
