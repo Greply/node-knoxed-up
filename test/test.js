@@ -31,10 +31,9 @@
         },
 
         "To Temp": function(test) {
-            test.expect(4);
-            test.ok(S3 instanceof KnoxedUp, "Instance created");
+            test.expect(3);
 
-            S3.toTemp(sPath, 'binary', function(oError, sTempFile, sHash) {
+            S3.toTemp(sPath, 'binary', sFileHash, function(oError, sTempFile, sHash) {
                 test.equal(sHash,     sFileHash,          "Downloaded file has Correct Hash");
                 test.equal(sTempFile, '/tmp/' + sFileHash, "Temp file is Named Correctly");
 
@@ -46,10 +45,9 @@
         },
 
         "To Temp With Extension": function(test) {
-            test.expect(4);
-            test.ok(S3 instanceof KnoxedUp, "Instance created");
+            test.expect(3);
 
-            S3.toTemp(sPath, 'binary', '.avi', function(oError, sTempFile, sHash) {
+            S3.toTemp(sPath, 'binary', sFileHash, '.avi', function(oError, sTempFile, sHash) {
                 test.equal(sHash,     sFileHash,          "Downloaded file has Correct Hash");
                 test.equal(sTempFile, '/tmp/' + sFileHash + '.avi', "Temp file is Named Correctly");
 
@@ -58,12 +56,20 @@
                     test.done();
                 });
             });
+        },
+
+        "To Temp With Hash Mismatch": function(test) {
+            test.expect(1);
+
+            S3.toTemp(sPath, 'binary', sFileHash + 'a', '.avi', function(oError, sTempFile, sHash) {
+                test.throws(oError, 'File Hash Mismatch', "Caught Incorrect Hash");
+                test.done();
+            });
         }
 
         /*
         "Socket Hangup": function(test) {
             test.expect(1);
-            test.ok(S3 instanceof KnoxedUp, "Instance created");
 
             var aFiles = [
                 // Thumbnails

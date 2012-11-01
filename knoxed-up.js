@@ -451,16 +451,32 @@
         }
     };
 
+    KnoxedUp.prototype._checkHash = function(sHash, sCheckHash, fCallback) {
+        if (sCheckHash !== null) {
+            if (sHash !== sCheckHash) {
+                var oError = new Error('File Hash Mismatch');
+                syslog.error({
+                    action: 'KnoxedUp._checkHash.error',
+                    error: oError,
+                    actual: sHash,
+                    check: sCheckHash
+                });
+                return fCallback(oError);
+            }
+        }
+
+        fCallback(null);
+    };
+
     /**
      *
      * @param {String}   sFile     Path to File to Download
      * @param {String}   sType     Binary or (?)
-     * @param {String}   sExtension
+     * @param {String}   sCheckHash
+     * @param {String|Function}   [sExtension]
      * @param {Function} fCallback - Path of Temp File
      */
-    KnoxedUp.prototype.toTemp = function(sFile, sType, sExtension, fCallback) {
-        sType           = sType || 'binary';
-
+    KnoxedUp.prototype.toTemp = function(sFile, sType, sCheckHash, sExtension, fCallback) {
         if (typeof sExtension == 'function') {
             fCallback         = sExtension;
             sExtension        = path.extname(sFile);
@@ -477,34 +493,40 @@
                     syslog.error({action: 'KnoxedUp._fromTemp.hash.error', error: oError});
                     fCallback(oError);
                 } else {
-                    var sFinalFile = '/tmp/' + sHash + sExtension;
-                    fsX.copyFile(this.getLocalPath(sFile), sFinalFile, function(oError) {
-                        if (oError) {
-                            syslog.error({action: 'KnoxedUp._fromTemp.copy.error', error: oError});
-                            fCallback(oError);
+                    this._checkHash(sHash, sCheckHash, function(oCheckHashError) {
+                        if (oCheckHashError) {
+                            fCallback(oCheckHashError);
                         } else {
-                            fs.chmod(sFinalFile, 0777, function(oError) {
+                            var sFinalFile = '/tmp/' + sHash + sExtension;
+                            fsX.copyFile(this.getLocalPath(sFile), sFinalFile, function(oError) {
                                 if (oError) {
-                                    syslog.error({action: 'KnoxedUp._fromTemp.chmod.error', error: oError});
+                                    syslog.error({action: 'KnoxedUp._fromTemp.copy.error', error: oError});
                                     fCallback(oError);
                                 } else {
-                                    fCallback(null, sFinalFile, sHash);
+                                    fs.chmod(sFinalFile, 0777, function(oError) {
+                                        if (oError) {
+                                            syslog.error({action: 'KnoxedUp._fromTemp.chmod.error', error: oError});
+                                            fCallback(oError);
+                                        } else {
+                                            fCallback(null, sFinalFile, sHash);
+                                        }
+                                    }.bind(this));
                                 }
-                            });
+                            }.bind(this));
                         }
-                    });
+                    }.bind(this));
                 }
-            });
+            }.bind(this));
         } else {
             fs.exists(sTempFile, function(bExists) {
                 if (bExists) {
-                    this._fromTemp(sTempFile, sExtension, fCallback);
+                    this._fromTemp(sTempFile, sCheckHash, sExtension, fCallback);
                 } else {
                     fs.exists(sTempFile + sExtension, function(bExists) {
                         if (bExists) {
-                            this._fromTemp(sTempFile + sExtension, sExtension, fCallback);
+                            this._fromTemp(sTempFile + sExtension, sCheckHash, sExtension, fCallback);
                         } else {
-                            this._toTemp(sTempFile, sFile, sType, sExtension, fCallback);
+                            this._toTemp(sTempFile, sFile, sType, sCheckHash, sExtension, fCallback);
                         }
                     }.bind(this));
                 }
@@ -515,11 +537,12 @@
     /**
      *
      * @param {String} sTempFile
+     * @param {String} sCheckHash
      * @param {String} sExtension
      * @param {Function} fCallback
      * @private
      */
-    KnoxedUp.prototype._fromTemp = function(sTempFile, sExtension, fCallback) {
+    KnoxedUp.prototype._fromTemp = function(sTempFile, sCheckHash, sExtension, fCallback) {
         syslog.debug({action: 'KnoxedUp._fromTemp', file: sTempFile});
         var iStart = syslog.timeStart();
         fsX.hashFile(sTempFile, function(oError, sHash) {
@@ -527,25 +550,31 @@
                 syslog.error({action: 'KnoxedUp._fromTemp.hash.error', error: oError});
                 fCallback(oError);
             } else {
-                var sFinalFile = '/tmp/' + sHash + sExtension;
-                fsX.copyFile(sTempFile, sFinalFile, function(oError) {
-                    if (oError) {
-                        syslog.error({action: 'KnoxedUp._fromTemp.copy.error', error: oError});
-                        fCallback(oError);
+                this._checkHash(sHash, sCheckHash, function(oCheckHashError) {
+                    if (oCheckHashError) {
+                        fCallback(oCheckHashError);
                     } else {
-                        fs.chmod(sFinalFile, 0777, function(oError) {
+                        var sFinalFile = '/tmp/' + sHash + sExtension;
+                        fsX.copyFile(sTempFile, sFinalFile, function(oError) {
                             if (oError) {
-                                syslog.error({action: 'KnoxedUp._fromTemp.chmod.error', error: oError});
+                                syslog.error({action: 'KnoxedUp._fromTemp.copy.error', error: oError});
                                 fCallback(oError);
                             } else {
-                                syslog.timeStop(iStart, {action: 'KnoxedUp._fromTemp.done', hash: sHash, file: sFinalFile});
-                                fCallback(null, sFinalFile, sHash);
+                                fs.chmod(sFinalFile, 0777, function(oError) {
+                                    if (oError) {
+                                        syslog.error({action: 'KnoxedUp._fromTemp.chmod.error', error: oError});
+                                        fCallback(oError);
+                                    } else {
+                                        syslog.timeStop(iStart, {action: 'KnoxedUp._fromTemp.done', hash: sHash, file: sFinalFile});
+                                        fCallback(null, sFinalFile, sHash);
+                                    }
+                                }.bind(this));
                             }
-                        });
+                        }.bind(this));
                     }
-                });
+                }.bind(this));
             }
-        });
+        }.bind(this));
     };
 
 
@@ -554,12 +583,13 @@
      * @param {String} sTempFile
      * @param {String} sFile
      * @param {String} sType
-     * @param {String} sExtension
+     * @param {String} sCheckHash
+     * @param {String} [sExtension]
      * @param {Function} fCallback
      * @param {Number} iRetries
      * @private
      */
-    KnoxedUp.prototype._toTemp = function(sTempFile, sFile, sType, sExtension, fCallback, iRetries) {
+    KnoxedUp.prototype._toTemp = function(sTempFile, sFile, sType, sCheckHash, sExtension, fCallback, iRetries) {
             iRetries          = iRetries !== undefined ? iRetries : 3;
         var iStart            = syslog.timeStart();
         var iLengthTotal      = 0;
@@ -586,12 +616,18 @@
                     if (oMoveError) {
                         fCallback(oMoveError);
                     } else {
-                        syslog.timeStop(iStart, {action: 'KnoxedUp._toTemp.done', hash: oDestination.hash, file: oDestination.path});
-                        fCallback(null, oDestination.path, oDestination.hash);
+                        this._checkHash(oDestination.hash, sCheckHash, function(oCheckHashError) {
+                            if (oCheckHashError) {
+                                fCallback(oCheckHashError);
+                            } else {
+                                syslog.timeStop(iStart, {action: 'KnoxedUp._toTemp.done', hash: oDestination.hash, file: oDestination.path});
+                                fCallback(null, oDestination.path, oDestination.hash);
+                            }
+                        }.bind(this));
                     }
-                });
+                }.bind(this));
             }
-        });
+        }.bind(this));
 
         syslog.debug({action: 'KnoxedUp._toTemp', file: sTempFile, s3: sFile});
 
@@ -603,7 +639,7 @@
                     syslog.warn({action: 'KnoxedUp._toTemp.request.hang_up.retry', file: sFile, retries: iRetries});
                     bRetry = true;
                     oStream.destroy();
-                    this._toTemp(sTempFile, sFile, sType, sExtension, fCallback, iRetries - 1);
+                    this._toTemp(sTempFile, sFile, sType, sCheckHash, sExtension, fCallback, iRetries - 1);
                 } else {
                     oStream.destroy();
                     fCallback(oError);
@@ -661,7 +697,7 @@
         if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
             fsX.hashFile(this.getLocalPath(sFile), fCallback);
         } else {
-            this.toTemp(sFile, sType, function(oError, sTempFile, sHash) {
+            this.toTemp(sFile, sType, null, function(oError, sTempFile, sHash) {
                 if (oError) {
                     fCallback(oError);
                 } else {
@@ -697,49 +733,65 @@
 
     /**
      *
-     * @param {Array}    aFiles    Array if file paths to download to temp
+     * @param {Object}   oFiles    Object of file paths to download to temp with file hashes as the key
      * @param {String}   sType     Binary or (?)
      * @param {Function} fCallback Object of Temp Files with S3 file names as Key
      */
-    KnoxedUp.prototype.filesToTemp = function(aFiles, sType, fCallback) {
+    KnoxedUp.prototype.filesToTemp = function(oFiles, sType, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
+        var aDownloads = [];
+        for (var sHash in oFiles) {
+            aDownloads.push({
+                hash: sHash,
+                file: oFiles[sHash]
+            });
+        }
+
         var oTempFiles = {};
-        async.forEach(aFiles, function (sFile, fCallbackAsync) {
-            this.toTemp(sFile, sType, function(oError, sTempFile) {
+        async.forEach(aDownloads, function (oFile, fCallbackAsync) {
+            this.toTemp(oFile.file, sType, oFile.hash, function(oError, sTempFile) {
                 if (oError) {
                     fCallbackAsync(oError);
                 } else {
-                    oTempFiles[sFile] = sTempFile;
+                    oTempFiles[oFile.hash] = sTempFile;
                     fCallbackAsync(null);
                 }
             }.bind(this))
         }.bind(this), function(oError) {
             if (oError) {
                 syslog.error({action: 'KnoxedUp.filesToTemp.error', error: oError});
+            } else {
+                fCallback(oError, oTempFiles);
             }
-
-            fCallback(oError, oTempFiles);
         }.bind(this));
     };
 
     /**
      *
-     * @param {Array}    aFiles    Array if file paths to download to temp
+     * @param {Object}   oFiles    Object of file paths to download to temp with file hashes as the key
      * @param {String}   sType     Binary or (?)
      * @param {String}   sExtension
      * @param {Function} fCallback Object of Temp Files with S3 file names as Key
      */
-    KnoxedUp.prototype.filesToTempWithExtension = function(aFiles, sType, sExtension, fCallback) {
+    KnoxedUp.prototype.filesToTempWithExtension = function(oFiles, sType, sExtension, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
+        var aDownloads = [];
+        for (var sHash in oFiles) {
+            aDownloads.push({
+                hash: sHash,
+                file: oFiles[sHash]
+            });
+        }
+
         var oTempFiles = {};
-        async.forEach(aFiles, function (sFile, fCallbackAsync) {
-            this.toTemp(sFile, sType, sExtension, function(oError, sTempFile) {
+        async.forEach(aDownloads, function (oFile, fCallbackAsync) {
+            this.toTemp(oFile.file, sType, oFile.hash, sExtension, function(oError, sTempFile) {
                 if (oError) {
                     fCallbackAsync(oError);
                 } else {
-                    oTempFiles[sFile] = sTempFile;
+                    oTempFiles[oFile.hash] = sTempFile;
                     fCallbackAsync(null);
                 }
             }.bind(this))
