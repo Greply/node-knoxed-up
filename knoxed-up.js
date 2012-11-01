@@ -457,9 +457,11 @@
                 var oError = new Error('File Hash Mismatch');
                 syslog.error({
                     action: 'KnoxedUp._checkHash.error',
-                    error: oError,
-                    actual: sHash,
-                    check: sCheckHash
+                    hash: {
+                        check:  sCheckHash,
+                        actual: sHash
+                    },
+                    error: oError
                 });
                 return fCallback(oError);
             }
