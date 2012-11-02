@@ -4,7 +4,7 @@ var exec        = require('child_process').exec;
 var fs          = require('fs');
 
 var arguments = process.argv.splice(2);
-var sHash = arguments[0];
+var sHashes  = arguments
 
 var s3 = new KnoxedUp(config.S3_MEDIA);
 
@@ -13,15 +13,15 @@ var getPath = function(sHash) {
 };
 
 var i = 0;
-var n = 1000;
+var n = 10;
 
-var go = function(i,n) {
+var go = function(i,n,sHash) {
     var sFrom = getPath(sHash);
     // rm file if it exists
     var fname = '/tmp/' + sHash;
     if (fs.existsSync(fname)) fs.unlinkSync(fname);
 
-    s3.toTemp(sFrom, 'binary', function(oError, sTempFile, sHash) {
+    s3.toTemp(sFrom, 'binary', sHash, function(oError, sTempFile, sHash) {
         if (oError) {
             console.log('KnoxedUp toTemp caught error',oError);
         } else {
@@ -39,7 +39,7 @@ var go = function(i,n) {
                     else {
                         console.log('matched trial',i,'hashes',aHash[0], sHash);
                         if (i < n) {
-                            go(i,n);
+                            go(i,n,sHash);
                         }
                     }
                 }
@@ -48,4 +48,7 @@ var go = function(i,n) {
     });
 }.bind(this);
 
-go(i,n);
+
+for (var iHash=0;iHash < sHashes.length;iHash++) {
+        go(i,n,sHashes[iHash]);
+}
