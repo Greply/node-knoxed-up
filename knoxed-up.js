@@ -108,6 +108,11 @@
                     .on('end', function(){
                         if (sCommand == 'get') {
                             if (iLengthTotal !== null) {
+                                oLog.length = {
+                                    download: iLength,
+                                    total:    iLengthTotal
+                                };
+
                                 if (iLength < iLengthTotal) {
                                     oLog.error = new Error('Content Length did not match Header');
                                     return fDone(oLog.error);
