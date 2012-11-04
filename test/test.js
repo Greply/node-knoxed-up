@@ -30,7 +30,44 @@
             });
         },
 
-        "To Temp": function(test) {
+        "To Temp (Private)": function(test) {
+            test.expect(3);
+
+            S3._toTemp('/tmp/' + sPath.split('/').pop(), sPath, 'binary', sFileHash, '', function(oError, sTempFile, sHash) {
+                test.equal(sHash,     sFileHash,          "Downloaded file has Correct Hash");
+                test.equal(sTempFile, '/tmp/' + sFileHash, "Temp file is Named Correctly");
+
+                fs.exists(sTempFile, function(bExists) {
+                    test.ok(bExists, "File Exists in /tmp");
+                    test.done();
+                });
+            });
+        },
+
+        "To Temp With Extension (Private)": function(test) {
+            test.expect(3);
+
+            S3._toTemp('/tmp/' + sPath.split('/').pop(), sPath, 'binary', sFileHash, '.avi', function(oError, sTempFile, sHash) {
+                test.equal(sHash,     sFileHash,          "Downloaded file has Correct Hash");
+                test.equal(sTempFile, '/tmp/' + sFileHash + '.avi', "Temp file is Named Correctly");
+
+                fs.exists(sTempFile, function(bExists) {
+                    test.ok(bExists, "File Exists in /tmp");
+                    test.done();
+                });
+            });
+        },
+
+        "To Temp With Hash Mismatch (Private)": function(test) {
+            test.expect(1);
+
+            S3._toTemp('/tmp/' + sPath.split('/').pop(), sPath, 'binary', sFileHash + 'a', '.avi', function(oError, sTempFile, sHash) {
+                test.throws(oError, 'File Hash Mismatch', "Caught Incorrect Hash");
+                test.done();
+            });
+        },
+
+        "To Temp (Public)": function(test) {
             test.expect(3);
 
             S3.toTemp(sPath, 'binary', sFileHash, function(oError, sTempFile, sHash) {
@@ -44,7 +81,7 @@
             });
         },
 
-        "To Temp With Extension": function(test) {
+        "To Temp With Extension (Public)": function(test) {
             test.expect(3);
 
             S3.toTemp(sPath, 'binary', sFileHash, '.avi', function(oError, sTempFile, sHash) {
@@ -58,12 +95,44 @@
             });
         },
 
-        "To Temp With Hash Mismatch": function(test) {
+        "To Temp With Hash Mismatch (Public)": function(test) {
             test.expect(1);
 
             S3.toTemp(sPath, 'binary', sFileHash + 'a', '.avi', function(oError, sTempFile, sHash) {
                 test.throws(oError, 'File Hash Mismatch', "Caught Incorrect Hash");
                 test.done();
+            });
+        },
+
+        "From Temp (Private)": function(test) {
+            test.expect(3);
+
+            S3.toTemp(sPath, 'binary', sFileHash, function() {
+                S3._fromTemp('/tmp/' + sFileHash, sFileHash, '', function(oError, sTempFile, sHash) {
+                    test.equal(sHash,     sFileHash,          "Downloaded file has Correct Hash");
+                    test.equal(sTempFile, '/tmp/' + sFileHash, "Temp file is Named Correctly");
+
+                    fs.exists(sTempFile, function(bExists) {
+                        test.ok(bExists, "File Exists in /tmp");
+                        test.done();
+                    });
+                });
+            });
+        },
+
+        "From Temp (Public)": function(test) {
+            test.expect(3);
+
+            S3.toTemp(sPath, 'binary', sFileHash, function() {
+                S3.toTemp(sPath, 'binary', sFileHash, function(oError, sTempFile, sHash) {
+                    test.equal(sHash,     sFileHash,          "Downloaded file has Correct Hash");
+                    test.equal(sTempFile, '/tmp/' + sFileHash, "Temp file is Named Correctly");
+
+                    fs.exists(sTempFile, function(bExists) {
+                        test.ok(bExists, "File Exists in /tmp");
+                        test.done();
+                    });
+                });
             });
         }
 

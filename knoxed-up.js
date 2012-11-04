@@ -583,7 +583,7 @@
             }
         }
 
-        fCallback(null);
+        fCallback(null, sHash);
     };
 
     /**
@@ -635,36 +635,21 @@
     KnoxedUp.prototype._fromTemp = function(sTempFile, sCheckHash, sExtension, fCallback) {
         syslog.debug({action: 'KnoxedUp._fromTemp', file: sTempFile});
         var iStart = syslog.timeStart();
-        fsX.hashFile(sTempFile, function(oError, sHash) {
+
+        async.auto({
+            hash:           function(fAsyncCallback, oResults) { fsX.hashFile(sTempFile, fAsyncCallback) },
+            check: ['hash', function(fAsyncCallback, oResults) { this._checkHash (oResults.hash, sCheckHash, fAsyncCallback) }.bind(this)],
+            copy:  ['hash', function(fAsyncCallback, oResults) { fsX.copyFile(sTempFile,  '/tmp/' + oResults.hash + sExtension, fAsyncCallback) }],
+            chmod: ['copy', function(fAsyncCallback, oResults) { fs.chmod(oResults.copy, 0777, fAsyncCallback) }]
+        }, function(oError, oResults) {
             if (oError) {
-                syslog.error({action: 'KnoxedUp._fromTemp.hash.error', error: oError});
+                syslog.error({action: 'KnoxedUp._fromTemp.error', error: oError});
                 fCallback(oError);
             } else {
-                this._checkHash(sHash, sCheckHash, function(oCheckHashError) {
-                    if (oCheckHashError) {
-                        fCallback(oCheckHashError);
-                    } else {
-                        var sFinalFile = '/tmp/' + sHash + sExtension;
-                        fsX.copyFile(sTempFile, sFinalFile, function(oError) {
-                            if (oError) {
-                                syslog.error({action: 'KnoxedUp._fromTemp.copy.error', error: oError});
-                                fCallback(oError);
-                            } else {
-                                fs.chmod(sFinalFile, 0777, function(oError) {
-                                    if (oError) {
-                                        syslog.error({action: 'KnoxedUp._fromTemp.chmod.error', error: oError});
-                                        fCallback(oError);
-                                    } else {
-                                        syslog.timeStop(iStart, {action: 'KnoxedUp._fromTemp.done', hash: sHash, file: sFinalFile});
-                                        fCallback(null, sFinalFile, sHash);
-                                    }
-                                }.bind(this));
-                            }
-                        }.bind(this));
-                    }
-                }.bind(this));
+                syslog.timeStop(iStart, {action: 'KnoxedUp._fromTemp.done', hash: oResults.hash, file: oResults.copy});
+                fCallback(null, oResults.copy, oResults.hash);
             }
-        }.bind(this));
+        });
     };
 
 
