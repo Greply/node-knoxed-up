@@ -29,7 +29,7 @@
      * @private
      */
     KnoxedUp.prototype._command = function (sCommand, sFilename, sType, oHeaders, fCallback, iRetries) {
-        iRetries  = iRetries !== undefined ? iRetries : 3;
+        iRetries  = iRetries !== undefined ? iRetries : 0;
 
         var oLog = {
             action: 'KnoxedUp._command',
@@ -57,14 +57,14 @@
 
         oRequest.on('error', function(oError) {
             if (oError.message == 'socket hang up') {
-                if (iRetries > 0) {
-                    oLog.action += '.request.hang_up.retry';
-                    syslog.warn(oLog);
-                    this._command(sCommand, sFilename, sType, oHeaders, fCallback, iRetries - 1);
-                } else {
+                if (iRetries > 3) {
                     oLog.action += '.request.hang_up.retry.max';
                     oLog.error   = oError;
                     fDone(oLog.error);
+                } else {
+                    oLog.action += '.request.hang_up.retry';
+                    syslog.warn(oLog);
+                    this._command(sCommand, sFilename, sType, oHeaders, fCallback, iRetries + 1);
                 }
             } else {
                 oLog.action += '.request.error';
