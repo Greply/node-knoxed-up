@@ -53,6 +53,7 @@
         var oRequest     = this.Client[sCommand](sFilename, oHeaders);
         var iLengthTotal = null;
         var iLength      = 0;
+        var sData        = '';
 
         oRequest.on('error', function(oError) {
             if (oError.message == 'socket hang up') {
@@ -94,9 +95,8 @@
 
                 fDone(oLog.error);
             } else {
-                var sData = '';
+                oResponse.setEncoding(sType);
                 oResponse
-                    .setEncoding(sType)
                     .on('error', function(oError){
                         oLog.error = oError;
                         fDone(oLog.error);
@@ -243,9 +243,9 @@
 
                             fCallback(null, aFiles);
                         }
-                    });
+                    }.bind(this));
                 }
-            });
+            }.bind(this));
         }
     };
 
@@ -277,7 +277,7 @@
                 } else {
                     fCallback(null, oResponse.statusCode != 404);
                 }
-            });
+            }.bind(this));
         }
     };
 
@@ -310,9 +310,9 @@
                         } else {
                             fCallback(null, sTo);
                         }
-                    });
+                    }.bind(this));
                 }
-            });
+            }.bind(this));
         } else {
             var oStream = fs.createReadStream(sFrom);
             this.Client.putStream(oStream, sTo, oHeaders, function(oError) {
@@ -323,7 +323,7 @@
                 } else {
                     fCallback(null, sTo);
                 }
-            });
+            }.bind(this));
         }
     };
 
@@ -347,7 +347,7 @@
                 } else {
                     fCallback(null, sData);
                 }
-            });
+            }.bind(this));
         }
     };
 
@@ -370,7 +370,7 @@
                         oContents[sFile] = sContents;
                         fGetCallback(null);
                     }
-                });
+                }.bind(this));
             }.bind(this), function(oError) {
                 if (oError) {
                     fCallback(oError);
@@ -405,7 +405,7 @@
                 syslog.debug({action: 'KnoxedUp.getHeaders.done', headers: oResponse.headers});
                 fCallback(null, oResponse.headers);
             }
-        });
+        }.bind(this));
     };
 
     /**
@@ -428,7 +428,7 @@
             var sToLocal   = this.getLocalPath(sTo);
             fsX.mkdirP(path.dirname(sToLocal), 0777, function() {
                 fsX.copyFile(sFromLocal, sToLocal, fCallback);
-            });
+            }.bind(this));
         } else {
             var bHasHeaders = false;
             for (var i in oHeaders) {
@@ -447,7 +447,7 @@
                 } else {
                     fCallback(null, sData);
                 }
-            });
+            }.bind(this));
         }
     };
 
@@ -468,7 +468,7 @@
 
             fsX.mkdirP(path.dirname(sToLocal), 0777, function() {
                 fsX.copyFile(sFromLocal, sToLocal, fCallback);
-            });
+            }.bind(this));
         } else {
             var oOptions = {
                 'Content-Length': '0',
@@ -490,7 +490,7 @@
                     syslog.error({action: 'KnoxedUp.copyFileToBucket.done'});
                     fCallback(null, sData);
                 }
-            });
+            }.bind(this));
         }
     };
 
@@ -509,7 +509,7 @@
             var sToLocal   = path.join(KnoxedUp.sPath, sBucket, sTo);
             fsX.mkdirP(path.dirname(sToLocal), 0777, function() {
                 fsX.moveFile(sFromLocal, sToLocal, fCallback);
-            });
+            }.bind(this));
         } else {
             this.copyFileToBucket(sFrom, sBucket, sTo, function(oError, sData) {
                 if (oError) {
@@ -519,7 +519,7 @@
                     this._delete(sFrom, {}, function(oError) {
                         // Carry on even if delete didnt work - Error will be in the logs
                         fCallback(null, sData);
-                    });
+                    }.bind(this));
                 }
             }.bind(this));
         }
@@ -545,7 +545,7 @@
             var sToLocal   = this.getLocalPath(sTo);
             fsX.mkdirP(path.dirname(sToLocal), 0777, function() {
                 fsX.moveFile(sFromLocal, sToLocal, fCallback);
-            });
+            }.bind(this));
         } else {
             if (sFrom == sTo) {
                 fCallback(null);
@@ -558,7 +558,7 @@
                         this._delete(sFrom, {}, function(oError) {
                             // Carry on even if delete didnt work - Error will be in the logs
                             fCallback(null, sData);
-                        });
+                        }.bind(this));
                     }
                 }.bind(this));
             }
@@ -711,7 +711,7 @@
             if (oError) {
                 fsX.removeDirectory(sTempFile, function() {
                     fCallback(oError);
-                });
+                }.bind(this));
             } else {
                 syslog.debug({action: 'KnoxedUp._toTemp.downloaded', size: sData.length, file: sTempFile});
                 fs.writeFile(sTempFile, sData, sType, function(oWriteError) {
@@ -733,9 +733,9 @@
                             }
                         }.bind(this));
                     }
-                });
+                }.bind(this));
             }
-        });
+        }.bind(this));
     };
 
     /**
@@ -757,7 +757,7 @@
                 } else {
                     fCallback(null, sHash);
                 }
-            });
+            }.bind(this));
         }
     };
 
