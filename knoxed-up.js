@@ -50,7 +50,7 @@
             fCallback(oError, oResponse, sData);
         };
 
-        var oRequest     = this.Client[sCommand](sFilename, oHeaders);+=
+        var oRequest     = this.Client[sCommand](sFilename, oHeaders);
         var iLengthTotal = null;
         var iLength      = 0;
 
