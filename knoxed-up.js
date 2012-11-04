@@ -106,10 +106,12 @@
                         iLength += sChunk.length;
                     })
                     .on('end', function(){
-                        if (iLengthTotal !== null) {
-                            if (iLength < iLengthTotal) {
-                                oLog.error = new Error('Content Length did not match Header');
-                                return fDone(oLog.error);
+                        if (sCommand == 'get') {
+                            if (iLengthTotal !== null) {
+                                if (iLength < iLengthTotal) {
+                                    oLog.error = new Error('Content Length did not match Header');
+                                    return fDone(oLog.error);
+                                }
                             }
                         }
 
@@ -397,7 +399,7 @@
      * @param {Function} fCallback
      */
     KnoxedUp.prototype.getHeaders = function(sFile, fCallback) {
-        this._head(sFile, function(oError, oResponse) {
+        this._head(sFile, {}, function(oError, oResponse) {
             if (oError) {
                 syslog.error({action: 'KnoxedUp.getHeaders.error', error: oError});
                 fCallback(oError);

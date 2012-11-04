@@ -167,7 +167,7 @@
     };
 
     exports["Update Headers"] = {
-        "To Temp": function(test) {
+        "Headers Set Correctly": function(test) {
             test.expect(1);
 
             var oHeaders = {
