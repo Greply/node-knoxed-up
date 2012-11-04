@@ -606,35 +606,7 @@
         var sTempFile  = '/tmp/' + sFile.split('/').pop();
 
         if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
-            fsX.hashFile(this.getLocalPath(sFile), function(oError, sHash) {
-                if (oError) {
-                    syslog.error({action: 'KnoxedUp._fromTemp.hash.error', error: oError});
-                    fCallback(oError);
-                } else {
-                    this._checkHash(sHash, sCheckHash, function(oCheckHashError) {
-                        if (oCheckHashError) {
-                            fCallback(oCheckHashError);
-                        } else {
-                            var sFinalFile = '/tmp/' + sHash + sExtension;
-                            fsX.copyFile(this.getLocalPath(sFile), sFinalFile, function(oError) {
-                                if (oError) {
-                                    syslog.error({action: 'KnoxedUp._fromTemp.copy.error', error: oError});
-                                    fCallback(oError);
-                                } else {
-                                    fs.chmod(sFinalFile, 0777, function(oError) {
-                                        if (oError) {
-                                            syslog.error({action: 'KnoxedUp._fromTemp.chmod.error', error: oError});
-                                            fCallback(oError);
-                                        } else {
-                                            fCallback(null, sFinalFile, sHash);
-                                        }
-                                    }.bind(this));
-                                }
-                            }.bind(this));
-                        }
-                    }.bind(this));
-                }
-            }.bind(this));
+            this._fromTemp(this.getLocalPath(sFile), sCheckHash, sExtension, fCallback);
         } else {
             fs.exists(sTempFile, function(bExists) {
                 if (bExists) {
