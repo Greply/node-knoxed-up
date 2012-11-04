@@ -665,36 +665,22 @@
      */
     KnoxedUp.prototype._toTemp = function(sTempFile, sFile, sType, sCheckHash, sExtension, fCallback) {
         syslog.debug({action: 'KnoxedUp._toTemp', file: sTempFile, s3: sFile});
+        var iStart = syslog.timeStart();
 
-        this._get('/' + sFile, sType, {}, function(oError, oResponse, sData) {
+        async.auto({
+            get:             function(fAsyncCallback, oResults) { this._get( '/' + sFile, sType, {}, fAsyncCallback) }.bind(this),
+            write: ['get',   function(fAsyncCallback, oResults) { fs.writeFile(sTempFile, oResults.get[1], sType, fAsyncCallback) }],
+            move:  ['write', function(fAsyncCallback, oResults) { fsX.moveFileToHash(sTempFile, '/tmp', sExtension, fAsyncCallback) }],
+            check: ['move',  function(fAsyncCallback, oResults) { this._checkHash (oResults.move.hash, sCheckHash, fAsyncCallback) }.bind(this)]
+        }, function(oError, oResults) {
             if (oError) {
-                fsX.removeDirectory(sTempFile, function() {
-                    fCallback(oError);
-                }.bind(this));
+                syslog.error({action: 'KnoxedUp.action.error', error: oError});
+                fCallback(oError);
             } else {
-                syslog.debug({action: 'KnoxedUp._toTemp.downloaded', size: sData.length, file: sTempFile});
-                fs.writeFile(sTempFile, sData, sType, function(oWriteError) {
-                    if (oWriteError) {
-                        fCallback(oWriteError);
-                    } else {
-                        fsX.moveFileToHash(sTempFile, '/tmp', sExtension, function(oMoveError, oDestination) {
-                            if (oMoveError) {
-                                fCallback(oMoveError);
-                            } else {
-                                this._checkHash(oDestination.hash, sCheckHash, function(oCheckHashError) {
-                                    if (oCheckHashError) {
-                                        fCallback(oCheckHashError);
-                                    } else {
-                                        syslog.debug({action: 'KnoxedUp._toTemp.done', hash: oDestination.hash, file: oDestination.path});
-                                        fCallback(null, oDestination.path, oDestination.hash);
-                                    }
-                                }.bind(this));
-                            }
-                        }.bind(this));
-                    }
-                }.bind(this));
+                syslog.timeStop(iStart, {action: 'KnoxedUp.action.done', hash: oResults.hash, file: oResults.copy});
+                fCallback(null, oResults.move.path, oResults.move.hash);
             }
-        }.bind(this));
+        });
     };
 
     /**
