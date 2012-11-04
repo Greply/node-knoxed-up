@@ -34,13 +34,15 @@
      * @param {String}   sPrefix   Path of folder to list
      * @param {Integer}  iMax      Maximum number of files to show
      * @param {Function} fCallback Array of Objects in that folder
-     * @param {Function} fError
+     * @param {Integer}  iRetries
      */
-    KnoxedUp.prototype.getFileList = function(sPrefix, iMax, fCallback, fError) {
-        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
-        fError    = typeof fError    == 'function' ? fError     : function() {};
+    KnoxedUp.prototype.getFileList = function(sPrefix, iMax, fCallback, iRetries) {
+        iRetries   = iRetries !== undefined ? iRetries : 3;
+        fCallback  = typeof fCallback == 'function' ? fCallback  : function() {};
+        fError     = typeof fError    == 'function' ? fError     : function() {};
 
-        var parser = new xml2js.Parser();
+        var parser    = new xml2js.Parser();
+        var sContents = '';
 
         if (KnoxedUp.isLocal()) {
             var oMatch     = new RegExp('^' + sPrefix);
@@ -63,62 +65,90 @@
                 return aReturn;
             };
 
-            fCallback(getFiles());
+            fCallback(null, getFiles());
         } else {
-            this.get('/?prefix=' + sPrefix + '&max-keys=' + iMax).on('response', function(oResponse) {
-                var sContents = '';
-                oResponse.setEncoding('utf8');
-                oResponse
-                    .on('data', function(sChunk){
-                        sContents += sChunk;
-                    })
-                    .on('end', function() {
-                        parser.parseString(sContents, function (oError, oResult) {
-                            if (oError) {
-                                fError(oError);
-                            } else {
-                                var aFiles = [];
+            var oRequest = this.get('/?prefix=' + sPrefix + '&max-keys=' + iMax);
 
-                                if (oResult.ListBucketResult !== undefined) {
-                                    oResult = oResult.ListBucketResult;
-                                }
+            oRequest.on('error', function(oError) {
+                if (oError.message == 'socket hang up') {
+                    if (iRetries > 0) {
+                        syslog.warn({action: 'KnoxedUp.getFileList.request.error.hang_up.retry', retries: iRetries});
+                        this.getFileList(sPrefix, iMax, fCallback, iRetries - 1);
+                    } else {
+                        syslog.error({action: 'KnoxedUp.getFileList.request.error.hang_up.retry.max', error: oError});
+                        fCallback(oError);
+                    }
+                } else {
+                    syslog.error({action: 'KnoxedUp.getFileList.request.error', error: oError});
+                    fCallback(oError);
+                }
+            }.bind(this));
 
-                                var sKey;
+            oRequest.on('response', function(oResponse) {
+                syslog.debug({action: 'KnoxedUp.getFileList.downloading',  status: oResponse.statusCode});
 
-                                if (oResult.Contents !== undefined) {
-                                    if (Array.isArray(oResult.Contents)) {
-                                        for (var i in oResult.Contents) {
-                                            if (oResult.Contents[i].Key) {
-                                                sKey = oResult.Contents[i].Key;
+                if(oResponse.statusCode > 399) {
+                    var oError = new Error('S3 Error Code ' + oResponse.statusCode);
+                    syslog.error({action: 'KnoxedUp.getFileList.download.error', error: oError});
+                    fCallback(oError);
+                } else {
+                    oResponse.setEncoding('utf8');
+                    oResponse
+                        .on('data', function(sChunk){
+                            sContents += sChunk;
+                        })
+                        .on('error', function(oError){
+                            syslog.error({action: 'KnoxedUp.getFileList.download.error', error:oError});
+                            fCallback(oError);
+                        })
+                        .on('end', function() {
+                            parser.parseString(sContents, function (oError, oResult) {
+                                if (oError) {
+                                    fError(oError);
+                                } else {
+                                    var aFiles = [];
+
+                                    if (oResult.ListBucketResult !== undefined) {
+                                        oResult = oResult.ListBucketResult;
+                                    }
+
+                                    var sKey;
+
+                                    if (oResult.Contents !== undefined) {
+                                        if (Array.isArray(oResult.Contents)) {
+                                            for (var i in oResult.Contents) {
+                                                if (oResult.Contents[i].Key) {
+                                                    sKey = oResult.Contents[i].Key;
+                                                    if (Array.isArray(sKey)) {
+                                                        sKey = sKey[0];
+                                                    }
+
+                                                    if (sKey.substr(-1) == '/') {
+                                                        continue;
+                                                    }
+
+                                                    aFiles.push(sKey)
+                                                }
+                                            }
+                                        } else {
+                                            if (oResult.Contents.Key) {
+                                                sKey = oResult.Contents.Key;
                                                 if (Array.isArray(sKey)) {
                                                     sKey = sKey[0];
                                                 }
 
-                                                if (sKey.substr(-1) == '/') {
-                                                    continue;
+                                                if (sKey.substr(-1) != '/') {
+                                                    aFiles.push(sKey)
                                                 }
-
-                                                aFiles.push(sKey)
-                                            }
-                                        }
-                                    } else {
-                                        if (oResult.Contents.Key) {
-                                            sKey = oResult.Contents.Key;
-                                            if (Array.isArray(sKey)) {
-                                                sKey = sKey[0];
-                                            }
-
-                                            if (sKey.substr(-1) != '/') {
-                                                aFiles.push(sKey)
                                             }
                                         }
                                     }
-                                }
 
-                                fCallback(aFiles);
-                            }
+                                    fCallback(null, aFiles);
+                                }
+                            });
                         });
-                    });
+                }
             }).end();
         }
     };
@@ -153,7 +183,13 @@
         if (KnoxedUp.isLocal()) {
             this._localFileExists(sFile, fCallback);
         } else {
-            this.Client.head(sFile).on('response', function(oResponse) {
+            var oRequest = this.Client.head(sFile);
+
+            oRequest.on('error', function(oError) {
+                syslog.error({action: 'KnoxedUp.fileExists.error', error: oError});
+            });
+
+            oRequest.on('response', function(oResponse) {
                 fCallback(oResponse.statusCode != 404);
             }).end();
         }
@@ -178,17 +214,29 @@
             var sToLocal = this.getLocalPath(sTo);
             fsX.mkdirP(path.dirname(sToLocal), 0777, function(oError) {
                 if (oError) {
-                    console.error('putStream.Local.error', sFrom, sToLocal, oError);
-                    fCallback(oError, sTo);
+                    syslog.error({action: 'KnoxedUp.putStream.Local.error', from: sFrom, local: sToLocal, error: oError});
+                    fCallback(oError);
                 } else {
-                    fsX.copyFile(sFrom, sToLocal, function() {
-                        fCallback(null, sTo);
+                    fsX.copyFile(sFrom, sToLocal, function(oCopyError) {
+                        if (oCopyError) {
+                            syslog.error({action: 'KnoxedUp.putStream.Local.copy.error', from: sFrom, local: sToLocal, error: oCopyError});
+                            fCallback(oError);
+                        } else {
+                            fCallback(null, sTo);
+                        }
                     });
                 }
             });
         } else {
-            this.Client.putStream(fs.createReadStream(sFrom), sTo, oHeaders, function(oError) {
-                fCallback(oError, sTo);
+            var oStream = fs.createReadStream(sFrom);
+            this.Client.putStream(oStream, sTo, oHeaders, function(oError) {
+                oStream.destroy();
+                if (oError) {
+                    syslog.error({action: 'KnoxedUp.putStream.error', from: sFrom, local: sToLocal, error: oError});
+                    fCallback(oError);
+                } else {
+                    fCallback(null, sTo);
+                }
             });
         }
     };
@@ -197,14 +245,33 @@
      *
      * @param {String}   sFile     Path to File
      * @param {Function} fCallback Full contents of File
+     * @param {Number} iRetries
      */
-    KnoxedUp.prototype.getFile = function(sFile, fCallback) {
+    KnoxedUp.prototype.getFile = function(sFile, fCallback, iRetries) {
+        iRetries  = iRetries !== undefined ? iRetries : 3;
         fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
 
         if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
             fCallback(fs.readFileSync(this.getLocalPath(sFile)));
         } else {
-            this.get(sFile).on('response', function(oResponse) {
+            var oRequest = this.get(sFile);
+
+            oRequest.on('error', function(oError) {
+                if (oError.message == 'socket hang up') {
+                    if (iRetries > 0) {
+                        syslog.warn({action: 'KnoxedUp.getFile.request.hang_up.retry', file: sFile, retries: iRetries});
+                        this.getFile(sFile, fCallback, iRetries - 1);
+                    } else {
+                        syslog.error({action: 'KnoxedUp.getFile.request.hang_up.retry.max', error: oError});
+                        fCallback(oError);
+                    }
+                } else {
+                    syslog.error({action: 'KnoxedUp.getFile.request.error', error: oError, file: sFile});
+                    fCallback(oError);
+                }
+            }.bind(this));
+
+            oRequest.on('response', function(oResponse) {
                 if(oResponse.statusCode > 399) {
                     syslog.error({action: 'KnoxedUp.getFile.error', status: oResponse.statusCode});
 
@@ -223,6 +290,10 @@
                     oResponse
                         .on('data', function(sChunk){
                             sContents += sChunk;
+                        })
+                       .on('error', function(oError){
+                            syslog.error({action: 'KnoxedUp.getFile.error', error: oError});
+                            fCallback(oError);
                         })
                         .on('end', function(sChunk){
                             fCallback(null, sContents);
@@ -276,9 +347,27 @@
      *
      * @param {String} sFile
      * @param {Function} fCallback
+     * @param {Integer} iRetries
      */
-    KnoxedUp.prototype.getHeaders = function(sFile, fCallback) {
+    KnoxedUp.prototype.getHeaders = function(sFile, fCallback, iRetries) {
+        iRetries  = iRetries !== undefined ? iRetries : 3;
         var oRequest = this.Client.head('/' + sFile);
+
+        oRequest.on('error', function(oError) {
+            if (oError.message == 'socket hang up') {
+                if (iRetries > 0) {
+                    syslog.warn({action: 'KnoxedUp.getHeaders.request.hang_up.retry', file: sFile, retries: iRetries});
+                    this.getHeaders(sFile, fCallback, iRetries - 1);
+                } else {
+                    syslog.error({action: 'KnoxedUp.getHeaders.request.hang_up.retry.max', error: oError});
+                    fCallback(oError);
+                }
+            } else {
+                syslog.error({action: 'KnoxedUp.getHeaders.request.error', error: oError, file: sFile});
+                fCallback(oError);
+            }
+        }.bind(this));
+
         oRequest.on('response', function(oResponse) {
             syslog.debug({action: 'KnoxedUp.getHeaders', status: oResponse.statusCode});
 
@@ -345,6 +434,7 @@
             this.Client.put(sTo, oHeaders).on('response', function(oResponse) {
                 oResponse.setEncoding('utf8');
                 oResponse.on('error', function(oError){
+                    syslog.error({action: 'KnoxedUp.copyFile.error', error:  oError});
                     fCallback(oError);
                 });
                 oResponse.on('data', function(oChunk){
@@ -385,10 +475,26 @@
                 bucket: sBucket
             });
 
-            oDestination.put(sTo, oOptions).on('response', function(oResponse) {
+            var oRequest = oDestination.put(sTo, oOptions);
+
+            oRequest.on('error', function(oError) {
+                if (oError.message == 'socket hang up') {
+                    syslog.error({action: 'KnoxedUp.getHeaders.request.hang_up.retry.max', error: oError});
+                    fCallback(oError);
+                } else {
+                    syslog.error({action: 'KnoxedUp.getHeaders.request.error', error: oError, file: sFile});
+                    fCallback(oError);
+                }
+            }.bind(this));
+
+            oRequest.on('response', function(oResponse) {
                 oResponse.setEncoding('utf8');
                 oResponse.on('data', function(oChunk){
                     fCallback(null, oChunk);
+                });
+                oResponse.on('error', function(oError){
+                    syslog.error({action: 'KnoxedUp.copyFileToBucket.error', error:  oError});
+                    fCallback(oError);
                 });
             }).end();
         }
@@ -412,8 +518,17 @@
             });
         } else {
             this.copyFileToBucket(sFrom, sBucket, sTo, function(oError, oChunk) {
-                this.Client.del(sFrom).end();
-                fCallback(oError, oChunk);
+                if (oError) {
+                    syslog.error({action: 'KnoxedUp.moveFileToBucket.copy.error', error: oError});
+                    fCallback(oError);
+                } else {
+                    var oDeleteRequest = this.Client.del(sFrom).end();
+                    oDeleteRequest.on('error', function(oError) {
+                        syslog.error({action: 'KnoxedUp.moveFileToBucket.delete.error', error:  oError});
+                    }.bind(this));
+
+                    fCallback(null, oChunk);
+                }
             }.bind(this));
         }
     };
@@ -444,8 +559,20 @@
                 fCallback(null);
             } else {
                 this.copyFile(sFrom, sTo, oHeaders, function(oError, oChunk) {
-                    this.Client.del(sFrom).end();
-                    fCallback(oError, oChunk);
+                    if (oError) {
+                        syslog.error({action: 'KnoxedUp.moveFile', from: sFrom, to: sTo, error: oError});
+                        fCallback(oError);
+                    } else {
+                        var oDeleteRequest = this.Client.del(sFrom).end();
+                        oDeleteRequest.on('error', function(oError) {
+                            syslog.error({
+                                 action: 'KnoxedUp.moveFile.delete.error',
+                                 error:  oError
+                             });
+                        }.bind(this));
+
+                        fCallback(null, oChunk);
+                    }
                 }.bind(this));
             }
         }
@@ -643,6 +770,7 @@
                     oStream.destroy();
                     this._toTemp(sTempFile, sFile, sType, sCheckHash, sExtension, fCallback, iRetries - 1);
                 } else {
+                    syslog.error({action: 'KnoxedUp._toTemp.request.hang_up.retry.max', error: oError});
                     oStream.destroy();
                     fCallback(oError);
                 }
