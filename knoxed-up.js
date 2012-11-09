@@ -32,7 +32,7 @@
         iRetries  = iRetries !== undefined ? iRetries : 0;
 
         var oLog = {
-            action: 'KnoxedUp._command',
+            action: 'KnoxedUp._command.' + sCommand,
             command: sCommand,
             file:    sFilename,
             headers: oHeaders,
@@ -303,6 +303,8 @@
 
         fCallback = typeof fCallback == 'function' ? fCallback : function() {};
 
+
+
         if (KnoxedUp.isLocal()) {
             var sToLocal = this.getLocalPath(sTo);
             fsX.mkdirP(path.dirname(sToLocal), 0777, function(oError) {
@@ -536,8 +538,8 @@
      *
      * @param {String}   sFrom     Path of File to Move
      * @param {String}   sTo       Destination Path of File
-     * @param {Object}   oHeaders
-     * @param {Function} fCallback
+     * @param {Object|Function}   oHeaders
+     * @param {Function} [fCallback]
      */
     KnoxedUp.prototype.moveFile = function(sFrom, sTo, oHeaders, fCallback) {
         if (typeof oHeaders == 'function') {
