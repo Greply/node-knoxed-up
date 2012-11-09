@@ -1,5 +1,6 @@
     var fs          = require('fs');
     var path        = require('path');
+    var util        = require('util');
     var Knox        = require('knox');
     var fsX         = require('fs-extended');
     var syslog      = require('syslog-console').init('KnoxedUp');
@@ -129,10 +130,6 @@
         oRequest.end();
 
         return oRequest;
-    };
-
-    KnoxedUp.prototype._getStream = function (oStream, sFilename, oHeaders, fCallback) {
-        return this.Client.putStream(oStream, sFilename, oHeaders, fCallback);
     };
 
     KnoxedUp.prototype._get = function (sFilename, sType, oHeaders, fCallback) {
@@ -294,16 +291,30 @@
      * @param {String}   sTo
      * @param {Object}   oHeaders
      * @param {Function} fCallback Full contents of File
+     * @param {Integer} [iRetries]
      */
-    KnoxedUp.prototype.putStream = function(sFrom, sTo, oHeaders, fCallback) {
-        if (typeof oHeaders == 'function') {
-            fCallback = oHeaders;
-            oHeaders  = {};
-        }
-
+    KnoxedUp.prototype.putStream = function(sFrom, sTo, oHeaders, fCallback, iRetries) {
+        iRetries  = iRetries !== undefined ? iRetries : 0;
         fCallback = typeof fCallback == 'function' ? fCallback : function() {};
 
+        var oLog = {
+            action: 'KnoxedUp.putStream',
+            from:    sFrom,
+            to:      sTo,
+            headers: oHeaders,
+            retries: iRetries
+        };
 
+        var iStart = syslog.timeStart(oLog);
+        var fDone  = function(oError, sTo) {
+            if (oError) {
+                syslog.error(oLog);
+            } else {
+                syslog.timeStop(iStart, oLog);
+            }
+
+            fCallback(oError, sTo);
+        };
 
         if (KnoxedUp.isLocal()) {
             var sToLocal = this.getLocalPath(sTo);
@@ -326,11 +337,21 @@
             var oStream = fs.createReadStream(sFrom);
             this.Client.putStream(oStream, sTo, oHeaders, function(oError) {
                 oStream.destroy();
+
                 if (oError) {
-                    syslog.error({action: 'KnoxedUp.putStream.error', from: sFrom, local: sToLocal, error: oError});
-                    fCallback(oError);
+                    if (iRetries > 3) {
+                        oLog.action += '.request.hang_up.retry.max';
+                        oLog.error   = oError;
+                        fDone(oLog.error);
+                    } else {
+                        oLog.action += '.request.hang_up.retry';
+                        oLog.error   = (util.isError(oError)) ? new Error(oError.message) : oError;
+                        syslog.warn(oLog);
+                        this.putStream(sFrom, sTo, oHeaders, fCallback, iRetries + 1);
+                    }
                 } else {
-                    fCallback(null, sTo);
+                    oLog.action += '.done';
+                    fDone(null, sTo);
                 }
             }.bind(this));
         }
