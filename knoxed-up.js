@@ -149,7 +149,7 @@
     };
 
     KnoxedUp.prototype._delete = function (sFilename, oHeaders, fCallback) {
-        return this._command('del', sFilename, 'utf-8',oHeaders, fCallback);
+        // return this._command('del', sFilename, 'utf-8',oHeaders, fCallback);
     };
 
     KnoxedUp.prototype.setBucket = function(sBucket) {
