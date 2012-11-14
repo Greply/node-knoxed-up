@@ -20,8 +20,6 @@
     var aPath     = sFileHash.split('').slice(0, 3);
     var sPath     = aPath.join('/') + '/' + sFileHash;
 
-
-    /*
     exports["Test Download To Temp"] = {
         tearDown: function (callback) {
             // clean up
