@@ -1,5 +1,5 @@
 var config      = require('/etc/cameo/.config.js');
-var KnoxedUp    = require('./knoxed-up');
+var KnoxedUp    = require('../knoxed-up');
 var exec        = require('child_process').exec;
 var fs          = require('fs');
 
