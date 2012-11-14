@@ -334,26 +334,34 @@
                 }
             }.bind(this));
         } else {
-            var oStream = fs.createReadStream(sFrom);
-            this.Client.putStream(oStream, sTo, oHeaders, function(oError) {
-                oStream.destroy();
-
-                if (oError) {
-                    if (iRetries > 3) {
-                        oLog.action += '.request.hang_up.retry.max';
-                        oLog.error   = oError;
-                        fDone(oLog.error);
-                    } else {
-                        oLog.action += '.request.hang_up.retry';
-                        oLog.error   = (util.isError(oError)) ? new Error(oError.message) : oError;
-                        syslog.warn(oLog);
-                        this.putStream(sFrom, sTo, oHeaders, fCallback, iRetries + 1);
-                    }
+            fs.stat(sFrom, function(oStatError, oStat) {
+                if (oStatError) {
+                    fDone(oStatError, sTo);
                 } else {
-                    oLog.action += '.done';
-                    fDone(null, sTo);
+                    oHeaders['Content-Length'] = oStat.size;
+
+                    var oStream = fs.createReadStream(sFrom);
+                    this.Client.putStream(oStream, sTo, oHeaders, function(oError) {
+                        oStream.destroy();
+
+                        if (oError) {
+                            if (iRetries > 3) {
+                                oLog.action += '.request.hang_up.retry.max';
+                                oLog.error   = oError;
+                                fDone(oLog.error);
+                            } else {
+                                oLog.action += '.request.hang_up.retry';
+                                oLog.error   = (util.isError(oError)) ? new Error(oError.message) : oError;
+                                syslog.warn(oLog);
+                                this.putStream(sFrom, sTo, oHeaders, fCallback, iRetries + 1);
+                            }
+                        } else {
+                            oLog.action += '.done';
+                            fDone(null, sTo);
+                        }
+                    }.bind(this));
                 }
-            }.bind(this));
+            });
         }
     };
 
