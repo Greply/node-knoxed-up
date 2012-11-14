@@ -12,7 +12,7 @@
     "dependencies": {
         "xml2js":           ">=0.2.0",
         "async":            ">=0.1.15",
-        "knox":             "git://github.com/slaskis/knox.git",
+        "knox":             ">=0.4.1",
         "fs-extended":      "git://github.com/enobrev/node-fs-extended.git",
         "syslog-console":   "git://github.com/enobrev/node-syslog-console.git"
     },
