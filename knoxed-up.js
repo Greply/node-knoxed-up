@@ -477,14 +477,49 @@
 
             oHeaders['Content-Length']           = '0';
             oHeaders['x-amz-copy-source']        = '/' + this.Client.bucket + '/' + sFrom;
-            oHeaders['x-amz-metadata-directive'] = bHasHeaders ? 'REPLACE' : 'COPY';
+            oHeaders['x-amz-metadata-directive'] = 'REPLACE';
 
-            this._put(sTo, 'utf-8', oHeaders, function(oError, oResponse, sData) {
-                if (oError) {
-                    syslog.error({action: 'KnoxedUp.copyFile.error', error:  oError});
-                    fCallback(oError);
+            /*
+                 No way to just over-write headers.  It's all or nothing.  This way we keep what's there and add more
+                 http://doc.s3.amazonaws.com/proposals/copy.html
+                 COPY: Copy the metadata from the original object. If this is specified, any metadata in this request will be ignored. This is the default.
+                 REPLACE: Ignore the original object’s metadata and replace it with the metadata in this request.
+             */
+
+            this.getHeaders(sFrom, function(oGetHeadersError, oGotHeaders) {
+                if (oGetHeadersError) {
+                    syslog.error({action: 'KnoxedUp.copyFile.getHeaders.error', error:  oGetHeadersError});
+                    fCallback(oGetHeadersError);
                 } else {
-                    fCallback(null, sData);
+                    // Copy meta-headers from original
+                    for (var sKey in oGotHeaders) {
+                        // Do not override headers that were explictly set by method call
+                        if (oHeaders[sKey] === undefined) {
+                            // These are basically just copied from the S3 console
+                            if (sKey.indexOf('x-amz-meta-')         == 0
+                            ||  sKey.indexOf('Content-Type')        == 0
+                            ||  sKey.indexOf('Content-Disposition') == 0
+                            ||  sKey.indexOf('Content-Encoding')    == 0
+                            ||  sKey.indexOf('Cache-Control')       == 0
+                            ||  sKey.indexOf('Expires')             == 0 ) {
+                                oHeaders[sKey] = oGotHeaders[sKey];
+                                bHasHeaders    = true;
+                            }
+                        }
+                    }
+
+                    if (!bHasHeaders) {
+                        oHeaders['x-amz-metadata-directive'] = 'COPY';
+                    }
+
+                    this._put(sTo, 'utf-8', oHeaders, function(oError, oResponse, sData) {
+                        if (oError) {
+                            syslog.error({action: 'KnoxedUp.copyFile.error', error:  oError});
+                            fCallback(oError);
+                        } else {
+                            fCallback(null, sData);
+                        }
+                    }.bind(this));
                 }
             }.bind(this));
         }
