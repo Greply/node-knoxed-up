@@ -8,6 +8,10 @@ var sHashes  = arguments
 
 var s3 = new KnoxedUp(config.S3_MEDIA);
 
+KnoxedUp.prototype.onProgress = function(oProgress) {
+    process.stdout.write("\r" + oProgress.percent + '%');
+}
+
 var getPath = function(sHash) {
     return sHash.substr(0, 1) + '/' + sHash.substr(1, 1) + '/' + sHash.substr(2, 1) + '/' + sHash;
 };

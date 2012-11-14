@@ -286,6 +286,14 @@
     };
 
     /**
+     * Override me baby
+     * @param {Object} oProgress
+     */
+    KnoxedUp.prototype.onProgress = function(oProgress) {
+
+    };
+
+    /**
      *
      * @param {String}   sFrom
      * @param {String}   sTo
@@ -340,8 +348,8 @@
                 } else {
                     oHeaders['Content-Length'] = oStat.size;
 
-                    var oStream = fs.createReadStream(sFrom);
-                    this.Client.putStream(oStream, sTo, oHeaders, function(oError) {
+                    var oStream  = fs.createReadStream(sFrom);
+                    var oRequest = this.Client.putStream(oStream, sTo, oHeaders, function(oError) {
                         oStream.destroy();
 
                         if (oError) {
@@ -360,6 +368,8 @@
                             fDone(null, sTo);
                         }
                     }.bind(this));
+
+                    oRequest.on('progress', this.onProgress.bind(this));
                 }
             }.bind(this));
         }
