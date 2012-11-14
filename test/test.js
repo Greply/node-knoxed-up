@@ -20,6 +20,8 @@
     var aPath     = sFileHash.split('').slice(0, 3);
     var sPath     = aPath.join('/') + '/' + sFileHash;
 
+
+    /*
     exports["Test Download To Temp"] = {
         tearDown: function (callback) {
             // clean up
@@ -233,20 +235,110 @@
             dl();
         }
         */
-    };
+    // };
 
     exports["Update Headers"] = {
-        "Headers Set Correctly": function(test) {
+        "Content Type Set Correctly": function(test) {
             test.expect(1);
 
             var oHeaders = {
-                'Content-Type': 'video/vnd.avi'
+                'Content-Type':    'video/vnd.avi',
+                'x-amz-meta-test': 'abc123'
             };
 
             S3.updateHeaders('5/9/3/593949e21dee8eeb9c7af2f26b87f8bb0c2241c3', oHeaders, function(oUpdateError) {
                 S3.getHeaders('5/9/3/593949e21dee8eeb9c7af2f26b87f8bb0c2241c3', function(oGetError, oGetHeaders) {
-                    test.equal(oGetHeaders['content-type'], oHeaders['Content-Type'], 'Headers Updated Correctly');
+                    test.equal(oGetHeaders['content-type'], oHeaders['Content-Type'], 'Content Type Updated Correctly');
                     test.done();
+                });
+            });
+        },
+
+        "Headers Set Correctly": function(test) {
+            test.expect(1);
+
+            var oHeaders = {
+                'Content-Type':    'video/vnd.avi',
+                'x-amz-meta-test': 'abc123'
+            };
+
+            S3.updateHeaders('5/9/3/593949e21dee8eeb9c7af2f26b87f8bb0c2241c3', oHeaders, function(oUpdateError) {
+                S3.getHeaders('5/9/3/593949e21dee8eeb9c7af2f26b87f8bb0c2241c3', function(oGetError, oGetHeaders) {
+                    test.equal(oGetHeaders['x-amz-meta-test'], oHeaders['x-amz-meta-test'], 'Headers Updated Correctly');
+                    test.done();
+                });
+            });
+        },
+
+        "Headers Set Correctly After Copy": function(test) {
+            test.expect(1);
+
+            var sTestFile =  'test/copy_delete_me';
+
+            var oHeaders = {
+                'x-amz-meta-test': 'abc123'
+            };
+
+            S3.copyFile('5/9/3/593949e21dee8eeb9c7af2f26b87f8bb0c2241c3', sTestFile, function(oCopyError) {
+                S3.getHeaders(sTestFile, function(oGetError, oGetHeaders) {
+                    test.equal(oGetHeaders['x-amz-meta-test'], oHeaders['x-amz-meta-test'], 'Headers Updated Correctly');
+
+                    S3.deleteFile(sTestFile, function() {
+                        test.done();
+                    });
+                });
+            });
+        },
+
+        "Headers Set Correctly After Move": function(test) {
+            test.expect(1);
+
+            var sTestFile  =  'test/copy_delete_me';
+            var sTestFile2 =  'test/copy_delete_me2';
+
+            var oHeaders = {
+                'x-amz-meta-test': 'abc123'
+            };
+
+            S3.copyFile('5/9/3/593949e21dee8eeb9c7af2f26b87f8bb0c2241c3', sTestFile, function(oCopyError) {
+                S3.moveFile(sTestFile, sTestFile2, function(oCopyError) {
+                    S3.getHeaders(sTestFile2, function(oGetError, oGetHeaders) {
+                        test.equal(oGetHeaders['x-amz-meta-test'], oHeaders['x-amz-meta-test'], 'Headers Updated Correctly');
+
+                        S3.deleteFile(sTestFile, function() {
+                            S3.deleteFile(sTestFile2, function() {
+                                test.done();
+                            });
+                        });
+                    });
+                });
+            });
+        },
+
+        "Headers Set Correctly After Copy To Bucket": function(test) {
+            test.expect(1);
+
+            var sToBucket = 'cameo.enobrev.net';
+
+            var oHeaders = {
+                'x-amz-meta-test': 'abc123'
+            };
+
+            var S3b = new KnoxedUp({
+                key:    'AKIAJ7CBLVZ2DSXOOBWQ',
+                secret: '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',
+                bucket: sToBucket
+            });
+
+            var sTestFile  =  'test/copy_delete_me';
+
+            S3.copyFileToBucket('5/9/3/593949e21dee8eeb9c7af2f26b87f8bb0c2241c3', sToBucket, sTestFile, function(oCopyError) {
+                S3b.getHeaders(sTestFile, function(oGetError, oGetHeaders) {
+                    test.equal(oGetHeaders['x-amz-meta-test'], oHeaders['x-amz-meta-test'], 'Headers Updated Correctly');
+
+                    S3b.deleteFile(sTestFile, function() {
+                        test.done();
+                    });
                 });
             });
         }

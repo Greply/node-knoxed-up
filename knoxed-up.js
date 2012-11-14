@@ -423,6 +423,15 @@
 
     /**
      *
+     * @param {String}   sFile
+     * @param {Function} fCallback
+     */
+    KnoxedUp.prototype.deleteFile = function(sFile, fCallback) {
+        this._delete(sFile, {}, fCallback);
+    };
+
+    /**
+     *
      * @param {String} sFile
      * @param {Function} fCallback
      */
@@ -559,15 +568,9 @@
      *
      * @param {String}   sFrom     Path of File to Move
      * @param {String}   sTo       Destination Path of File
-     * @param {Object|Function}   oHeaders
-     * @param {Function} [fCallback]
+     * @param {Function} fCallback
      */
-    KnoxedUp.prototype.moveFile = function(sFrom, sTo, oHeaders, fCallback) {
-        if (typeof oHeaders == 'function') {
-            fCallback = oHeaders;
-            oHeaders  = {};
-        }
-
+    KnoxedUp.prototype.moveFile = function(sFrom, sTo, fCallback) {
         fCallback = typeof fCallback == 'function' ? fCallback : function() {};
 
         if (KnoxedUp.isLocal() && this._localFileExists(sFrom)) {
@@ -580,7 +583,7 @@
             if (sFrom == sTo) {
                 fCallback(null);
             } else {
-                this.copyFile(sFrom, sTo, oHeaders, function(oError, sData) {
+                this.copyFile(sFrom, sTo, {}, function(oError, sData) {
                     if (oError) {
                         syslog.error({action: 'KnoxedUp.moveFile', from: sFrom, to: sTo, error: oError});
                         fCallback(oError);
