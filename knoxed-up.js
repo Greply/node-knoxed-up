@@ -9,18 +9,25 @@
     var Buffer      = require('buffer').Buffer;
 
     var KnoxedUp = function(oConfig) {
-        this.oConfig = {
-            key:    oConfig.AMAZON.SERVER.ID,
-            secret: oConfig.AMAZON.SERVER.SECRET,
-            bucket: oConfig.AMAZON.BUCKET
-        };
-        this.sOriginalBucket = oConfig.AMAZON.BUCKET;
-        this.Client  = Knox.createClient(this.oConfig);
+        if (oConfig.AMAZON !== undefined) {
+            this.oConfig = {
+                key:    oConfig.AMAZON.SERVER.ID,
+                secret: oConfig.AMAZON.SERVER.SECRET,
+                bucket: oConfig.AMAZON.BUCKET
+            };
 
-        if (oConfig.AMAZON.LOCAL       !== undefined
-        &&  oConfig.AMAZON.LOCAL_PATH  !== undefined) {
-            KnoxedUp.setLocal(oConfig.AMAZON.LOCAL, oConfig.AMAZON.LOCAL_PATH);
+            this.sOriginalBucket = oConfig.AMAZON.BUCKET;
+
+            if (oConfig.AMAZON.LOCAL       !== undefined
+            &&  oConfig.AMAZON.LOCAL_PATH  !== undefined) {
+                KnoxedUp.setLocal(oConfig.AMAZON.LOCAL, oConfig.AMAZON.LOCAL_PATH);
+            }
+        } else if (oConfig.key !== undefined) {
+            this.oConfig         = oConfig;
+            this.sOriginalBucket = oConfig.bucket;
         }
+
+        this.Client  = Knox.createClient(this.oConfig);
     };
 
     /**
