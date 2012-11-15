@@ -8,14 +8,18 @@
     var async       = require('async');
     var Buffer      = require('buffer').Buffer;
 
-    var KnoxedUp = function(config) {
-        this.oConfig = config;
-        this.sOriginalBucket = this.oConfig.bucket;
+    var KnoxedUp = function(oConfig) {
+        this.oConfig = {
+            key:    oConfig.AMAZON.SERVER.ID,
+            secret: oConfig.AMAZON.SERVER.SECRET,
+            bucket: oConfig.AMAZON.BUCKET
+        };
+        this.sOriginalBucket = oConfig.AMAZON.BUCKET;
         this.Client  = Knox.createClient(this.oConfig);
 
-        if (config.local !== undefined
-        &&  config.path  !== undefined) {
-            KnoxedUp.setLocal(config.local, config.path);
+        if (oConfig.AMAZON.LOCAL       !== undefined
+        &&  oConfig.AMAZON.LOCAL_PATH  !== undefined) {
+            KnoxedUp.setLocal(oConfig.AMAZON.LOCAL, oConfig.AMAZON.LOCAL_PATH);
         }
     };
 
@@ -579,7 +583,7 @@
                     syslog.error({action: 'KnoxedUp.copyFileToBucket.error', error:  oError});
                     fCallback(oError);
                 } else {
-                    syslog.error({action: 'KnoxedUp.copyFileToBucket.done'});
+                    syslog.info({action: 'KnoxedUp.copyFileToBucket.done'});
                     fCallback(null, sData);
                 }
             }.bind(this));

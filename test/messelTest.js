@@ -1,12 +1,12 @@
-var config      = require('/etc/cameo/.config.js');
 var KnoxedUp    = require('../knoxed-up');
 var exec        = require('child_process').exec;
 var fs          = require('fs');
+var oConfig     = require('/etc/cameo/.config.js');
 
 var arguments = process.argv.splice(2);
 var sHashes  = arguments
 
-var s3 = new KnoxedUp(config.S3_MEDIA);
+var s3 = new KnoxedUp(oConfig);
 
 var getPath = function(sHash) {
     return sHash.substr(0, 1) + '/' + sHash.substr(1, 1) + '/' + sHash.substr(2, 1) + '/' + sHash;
