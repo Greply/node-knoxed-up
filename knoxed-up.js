@@ -360,7 +360,7 @@
                     oHeaders['Content-Length'] = oStat.size;
 
                     var oStream  = fs.createReadStream(sFrom);
-                    var oRequest = this.Client.putStream(oStream, sTo, oHeaders, function(oError) {
+                    var oRequest = this.Client.putStream(oStream, sTo, oHeaders, function(oError, oResponse) {
                         oStream.destroy();
 
                         if (oError) {
@@ -374,6 +374,9 @@
                                 syslog.warn(oLog);
                                 this.putStream(sFrom, sTo, oHeaders, fCallback, iRetries + 1);
                             }
+                        } else if(oResponse.statusCode > 399) {
+                            oLog.error = new Error('S3 Error Code ' + oResponse.statusCode);
+                            fDone(oLog.error);
                         } else {
                             oLog.action += '.done';
                             fDone(null, sTo);
