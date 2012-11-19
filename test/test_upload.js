@@ -1,7 +1,11 @@
+try {
+
 var KnoxedUp    = require('../knoxed-up');
 var exec        = require('child_process').exec;
 var fs          = require('fs');
+var fsX         = require('fs-extended');
 var oConfig     = require('/etc/cameo/.config.js');
+var crypto      = require('crypto');
 
 var arguments = process.argv.splice(2);
 var sHashes  = arguments
@@ -17,38 +21,59 @@ var getPath = function(sHash) {
 };
 
 var i = 0;
-var n = 10;
+var n = 1;
 
 var go = function(i,n,sHash) {
-    var sTo = getPath(sHash);
-    var headers = { "Content-Type" : ["video/vnd.avi"] };
-    // rm file if it exists
     var sFrom = '/tmp/' + sHash;
-    s3.deleteFile(sTo, function(oError) {
-        if (oError) {
-	       console.log('KnoxdUp deleteFile caught error',oError);
-        }
-        else {
-            s3.putStream(sFrom, sTo, headers, function(oError) {
-                if (oError) {
-                    console.log('KnoxedUp putStream caught error',oError);
-                } else {
-                    i++;
+    var sTo = getPath(sHash);
+    
+    var md5 = crypto.createHash('md5');
+    
 
-                    console.log('putStream succeeded trial',i,'hash',sHash);
-                    if (i < n) {
-                        go(i,n,sHash);
+    fsX.md5FileToBase64(sFrom, function(oError, digest) {   
+        console.log('md5base64 hash',digest); 
+
+    // var stream = fs.createReadStream( sFrom, { encoding:'binary' });
+    
+    // stream.addListener('data', function(chunk) {
+    //     md5.update(chunk);
+    // });
+
+    // stream.addListener('close', function() {
+    //     var digest = md5.digest('base64');
+
+        var headers = { "Content-Type" : ["video/mp4"] ,
+                        "Content-MD5"  : digest };
+
+        // rm file if it exists        
+        s3.deleteFile(sTo, function(oError) {
+            if (oError) {
+    	       console.log('test_upload deleteFile caught error',oError);
+            }
+            else {
+                s3.putStream(sFrom, sTo, headers, function(oError) {
+                    if (oError) {
+                        console.log('putStream caught error',oError);
+                    } else {
+                        i++;
+
+                        console.log('putStream succeeded trial',i,'sha1hash',sHash,'md5sum',digest);
+                        if (i < n) {
+                            go(i,n,sHash);
+                        }          
                     }
-           
-                }
-            }.bind(this));
-	    }
+                }.bind(this));
+    	    }
+        }.bind(this));
     }.bind(this));
-      
-   
 }.bind(this);
 
 
 for (var iHash=0;iHash < sHashes.length;iHash++) {
         go(i,n,sHashes[iHash]);
+}
+
+}
+catch (e) {
+    console.log('error',e);
 }

@@ -362,6 +362,9 @@
                     var oStream  = fs.createReadStream(sFrom);
                     var oRequest = this.Client.putStream(oStream, sTo, oHeaders, function(oError, oResponse) {
                         oStream.destroy();
+                        // console.log('\nresponse headers',JSON.stringify(oResponse.headers,null,'  '));
+                        // console.log('response status',JSON.stringify(oResponse.statusCode,null,'  '));
+                        // console.log('reponse etag',JSON.stringify(oResponse.etag,null,'  '));
 
                         if (oError) {
                             if (iRetries > 3) {
