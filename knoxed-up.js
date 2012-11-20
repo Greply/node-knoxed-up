@@ -359,34 +359,40 @@
                 } else {
                     oHeaders['Content-Length'] = oStat.size;
 
-                    var oStream  = fs.createReadStream(sFrom);
-                    var oRequest = this.Client.putStream(oStream, sTo, oHeaders, function(oError, oResponse) {
-                        oStream.destroy();
-                        // console.log('\nresponse headers',JSON.stringify(oResponse.headers,null,'  '));
-                        // console.log('response status',JSON.stringify(oResponse.statusCode,null,'  '));
-                        // console.log('reponse etag',JSON.stringify(oResponse.etag,null,'  '));
+                    fsX.hashFile(sFrom, function(oError, sSHA1) {
+                        oHeaders['x-amz-meta-sha1'] = sSHA1;
 
-                        if (oError) {
-                            if (iRetries > 3) {
-                                oLog.action += '.request.hang_up.retry.max';
-                                oLog.error   = oError;
-                                fDone(oLog.error);
-                            } else {
-                                oLog.action += '.request.hang_up.retry';
-                                oLog.error   = (util.isError(oError)) ? new Error(oError.message) : oError;
-                                syslog.warn(oLog);
-                                this.putStream(sFrom, sTo, oHeaders, fCallback, iRetries + 1);
-                            }
-                        } else if(oResponse.statusCode > 399) {
-                            oLog.error = new Error('S3 Error Code ' + oResponse.statusCode);
-                            fDone(oLog.error);
-                        } else {
-                            oLog.action += '.done';
-                            fDone(null, sTo);
-                        }
+                        fsX.md5FileToBase64(sFrom, function(oError, sMD5B64) {
+                            oHeaders['Content-MD5'] = sMD5B64;
+
+                            var oStream  = fs.createReadStream(sFrom);
+                            var oRequest = this.Client.putStream(oStream, sTo, oHeaders, function(oError, oResponse) {
+                                oStream.destroy();
+
+                                if (oError) {
+                                    if (iRetries > 3) {
+                                        oLog.action += '.request.hang_up.retry.max';
+                                        oLog.error   = oError;
+                                        fDone(oLog.error);
+                                    } else {
+                                        oLog.action += '.request.hang_up.retry';
+                                        oLog.error   = (util.isError(oError)) ? new Error(oError.message) : oError;
+                                        syslog.warn(oLog);
+                                        this.putStream(sFrom, sTo, oHeaders, fCallback, iRetries + 1);
+                                    }
+                                } else if(oResponse.statusCode > 399) {
+                                    oLog.error = new Error('S3 Error Code ' + oResponse.statusCode);
+                                    fDone(oLog.error);
+                                } else {
+                                    oLog.action += '.done';
+                                    fDone(null, sTo);
+                                }
+                            }.bind(this));
+
+                            oRequest.on('progress', this.onProgress.bind(this));
+                        }.bind(this));
+
                     }.bind(this));
-
-                    oRequest.on('progress', this.onProgress.bind(this));
                 }
             }.bind(this));
         }
