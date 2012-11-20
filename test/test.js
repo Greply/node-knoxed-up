@@ -134,6 +134,19 @@
                     });
                 });
             });
+        },
+
+        "Set Size and Headers (Private)": function(test) {
+            test.expect(3);
+
+            S3.toTemp(sPath, 'binary', sFileHash, function(oError, sTempFile, sHash) {
+                S3._setSizeAndHashHeaders('/tmp/' + sFileHash, {}, function(oError, oHeaders) {
+                    test.equal(oHeaders['Content-Length'],  56322,                                      "Content Length Set Correctly");
+                    test.equal(oHeaders['Content-MD5'],     'P6yNY2+gvwgbheTaaKdrMQ==',                 "MD5 Set Correctly");
+                    test.equal(oHeaders['x-amz-meta-sha1'], '62228dc488ce4a2619e460c117254db404981b1e', "SHA1 Set Correctly");
+                    test.done();
+                });
+            });
         }
 
         /*
@@ -269,7 +282,7 @@
         },
 
         "Headers Set Correctly After Copy": function(test) {
-            test.expect(1);
+            test.expect(3);
 
             var sTestFile =  'test/copy_delete_me';
 
@@ -278,7 +291,9 @@
             };
 
             S3.copyFile('5/9/3/593949e21dee8eeb9c7af2f26b87f8bb0c2241c3', sTestFile, function(oCopyError) {
+                test.ifError(oCopyError, 'Get Headers Error');
                 S3.getHeaders(sTestFile, function(oGetError, oGetHeaders) {
+                    test.ifError(oGetError, 'Get Headers Error');
                     test.equal(oGetHeaders['x-amz-meta-test'], oHeaders['x-amz-meta-test'], 'Headers Updated Correctly');
 
                     S3.deleteFile(sTestFile, function() {

@@ -152,13 +152,7 @@
     };
 
     KnoxedUp.prototype._put = function (sFilename, sType, oHeaders, fCallback) {
-        this._setSizeAndHashHeaders(sFilename, oHeaders, function(oError, oPreppedHeaders) {
-            if (oError) {
-                fCallback(oError);
-            } else {
-                this._command('put', sFilename, sType, oPreppedHeaders, fCallback);
-            }
-        }.bind(this));
+        return this._command('put', sFilename, sType, oHeaders, fCallback);
     };
 
     KnoxedUp.prototype._head = function (sFilename, oHeaders, fCallback) {
@@ -167,6 +161,16 @@
 
     KnoxedUp.prototype._delete = function (sFilename, oHeaders, fCallback) {
         return this._command('del', sFilename, 'utf-8',oHeaders, fCallback);
+    };
+
+    KnoxedUp.prototype.putFile = function (sFilename, sType, oHeaders, fCallback) {
+        this._setSizeAndHashHeaders(sFilename, oHeaders, function(oError, oPreppedHeaders) {
+            if (oError) {
+                fCallback(oError);
+            } else {
+                this._put(sFilename, sType, oPreppedHeaders, fCallback);
+            }
+        }.bind(this));
     };
 
     KnoxedUp.prototype._setSizeAndHashHeaders = function (sFile, oHeaders, fCallback) {
