@@ -152,7 +152,13 @@
     };
 
     KnoxedUp.prototype._put = function (sFilename, sType, oHeaders, fCallback) {
-        return this._command('put', sFilename, sType, oHeaders, fCallback);
+        this._setSizeAndHashHeaders(sFilename, oHeaders, function(oError, oPreppedHeaders) {
+            if (oError) {
+                fCallback(oError);
+            } else {
+                this._command('put', sFilename, sType, oPreppedHeaders, fCallback);
+            }
+        }.bind(this));
     };
 
     KnoxedUp.prototype._head = function (sFilename, oHeaders, fCallback) {
@@ -161,6 +167,25 @@
 
     KnoxedUp.prototype._delete = function (sFilename, oHeaders, fCallback) {
         return this._command('del', sFilename, 'utf-8',oHeaders, fCallback);
+    };
+
+    KnoxedUp.prototype._setSizeAndHashHeaders = function (sFile, oHeaders, fCallback) {
+        async.parallel({
+            stat: function(fAsyncCallback) { fs.stat(            sFile, fAsyncCallback); },
+            md5:  function(fAsyncCallback) { fsX.md5FileToBase64(sFile, fAsyncCallback); },
+            sha1: function(fAsyncCallback) { fsX.hashFile(       sFile, fAsyncCallback); }
+        }, function(oError, oResults) {
+            if (oError) {
+                syslog.error({action: 'KnoxedUp._setSizeAndHashHeaders.error', file: sFile, headers: oHeaders, error: oError});
+                fCallback(oError);
+            } else {
+                oHeaders['Content-Length']  = oResults.stat.size;
+                oHeaders['Content-MD5']     = oResults.md5;
+                oHeaders['x-amz-meta-sha1'] = oResults.sha1;
+
+                fCallback(null, oHeaders);
+            }
+        });
     };
 
     KnoxedUp.prototype.setBucket = function(sBucket) {
@@ -353,46 +378,35 @@
                 }
             }.bind(this));
         } else {
-            fs.stat(sFrom, function(oStatError, oStat) {
-                if (oStatError) {
-                    fDone(oStatError, sTo);
+            this._setSizeAndHashHeaders(sFrom, oHeaders, function(oError, oPreppedHeaders) {
+                if (oError) {
+                    fCallback(oError);
                 } else {
-                    oHeaders['Content-Length'] = oStat.size;
+                    var oStream  = fs.createReadStream(sFrom);
+                    var oRequest = this.Client.putStream(oStream, sTo, oPreppedHeaders, function(oError, oResponse) {
+                        oStream.destroy();
 
-                    fsX.hashFile(sFrom, function(oError, sSHA1) {
-                        oHeaders['x-amz-meta-sha1'] = sSHA1;
-
-                        fsX.md5FileToBase64(sFrom, function(oError, sMD5B64) {
-                            oHeaders['Content-MD5'] = sMD5B64;
-
-                            var oStream  = fs.createReadStream(sFrom);
-                            var oRequest = this.Client.putStream(oStream, sTo, oHeaders, function(oError, oResponse) {
-                                oStream.destroy();
-
-                                if (oError) {
-                                    if (iRetries > 3) {
-                                        oLog.action += '.request.hang_up.retry.max';
-                                        oLog.error   = oError;
-                                        fDone(oLog.error);
-                                    } else {
-                                        oLog.action += '.request.hang_up.retry';
-                                        oLog.error   = (util.isError(oError)) ? new Error(oError.message) : oError;
-                                        syslog.warn(oLog);
-                                        this.putStream(sFrom, sTo, oHeaders, fCallback, iRetries + 1);
-                                    }
-                                } else if(oResponse.statusCode > 399) {
-                                    oLog.error = new Error('S3 Error Code ' + oResponse.statusCode);
-                                    fDone(oLog.error);
-                                } else {
-                                    oLog.action += '.done';
-                                    fDone(null, sTo);
-                                }
-                            }.bind(this));
-
-                            oRequest.on('progress', this.onProgress.bind(this));
-                        }.bind(this));
-
+                        if (oError) {
+                            if (iRetries > 3) {
+                                oLog.action += '.request.hang_up.retry.max';
+                                oLog.error   = oError;
+                                fDone(oLog.error);
+                            } else {
+                                oLog.action += '.request.hang_up.retry';
+                                oLog.error   = (util.isError(oError)) ? new Error(oError.message) : oError;
+                                syslog.warn(oLog);
+                                this.putStream(sFrom, sTo, oHeaders, fCallback, iRetries + 1);
+                            }
+                        } else if(oResponse.statusCode > 399) {
+                            oLog.error = new Error('S3 Error Code ' + oResponse.statusCode);
+                            fDone(oLog.error);
+                        } else {
+                            oLog.action += '.done';
+                            fDone(null, sTo);
+                        }
                     }.bind(this));
+
+                    oRequest.on('progress', this.onProgress.bind(this));
                 }
             }.bind(this));
         }
