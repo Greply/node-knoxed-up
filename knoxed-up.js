@@ -420,60 +420,6 @@
 
     /**
      *
-     * @param {String}   sFile     Path to File
-     * @param {Function} fCallback Full contents of File
-     * @param {Number} iRetries
-     */
-    KnoxedUp.prototype.getFile = function(sFile, fCallback, iRetries) {
-        iRetries  = iRetries !== undefined ? iRetries : 3;
-        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
-
-        if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
-            fCallback(fs.readFileSync(this.getLocalPath(sFile)));
-        } else {
-            this._get(sFile, 'utf-8', {}, function(oError, oResponse, sData) {
-                if (oError) {
-                    syslog.error({action: 'KnoxedUp.getFile.error', error: oError});
-                    fCallback(oError);
-                } else {
-                    fCallback(null, sData);
-                }
-            }.bind(this));
-        }
-    };
-
-    /**
-     *
-     * @param {Array}    aFiles    - Array of filenames to retrieve
-     * @param {Function} fCallback - Contents object with filename as key and file contents as value
-     */
-    KnoxedUp.prototype.getFiles = function(aFiles, fCallback) {
-        fCallback = typeof fCallback == 'function' ? fCallback  : function() {};
-
-        var oContents = {};
-        var iFiles    = aFiles.length;
-        if (iFiles) {
-            async.forEach(aFiles, function(sFile, fGetCallback) {
-                this.getFile(sFile, function(oError, sContents) {
-                    if (oError) {
-                        fGetCallback(oError);
-                    } else {
-                        oContents[sFile] = sContents;
-                        fGetCallback(null);
-                    }
-                }.bind(this));
-            }.bind(this), function(oError) {
-                if (oError) {
-                    fCallback(oError);
-                } else {
-                    fCallback(null, oContents);
-                }
-            }.bind(this));
-        }
-    };
-
-    /**
-     *
      * @param {String}   sFile
      * @param {Object}   oHeaders
      * @param {Function} fCallback
