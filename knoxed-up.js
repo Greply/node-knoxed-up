@@ -3,10 +3,10 @@
     var util        = require('util');
     var Knox        = require('knox');
     var fsX         = require('fs-extended');
-    var syslog      = require('syslog-console').init('KnoxedUp');
     var xml2js      = require('xml2js');
     var async       = require('async');
     var Buffer      = require('buffer').Buffer;
+    var syslog      = require('syslog-console').init('KnoxedUp');
 
     var KnoxedUp = function(oConfig) {
         if (oConfig.AMAZON !== undefined) {
@@ -122,11 +122,15 @@
                             if (iLengthTotal !== null) {
                                 oLog.length = {
                                     download: iLength,
-                                    total:    iLengthTotal
+                                    total:    iLengthTotal,
+                                    data:     sData.length
                                 };
 
                                 if (iLength < iLengthTotal) {
                                     oLog.error = new Error('Content Length did not match Header');
+                                    return fDone(oLog.error);
+                                } else if (sData.length != iLength) {
+                                    oLog.error = new Error('Data Length did not match Content Length');
                                     return fDone(oLog.error);
                                 }
                             }
@@ -161,6 +165,59 @@
 
     KnoxedUp.prototype._delete = function (sFilename, oHeaders, fCallback) {
         return this._command('del', sFilename, 'utf-8',oHeaders, fCallback);
+    };
+
+    KnoxedUp.prototype.getFile = function (sFilename, sToFile, sType, fCallback) {
+        syslog.debug({action: 'KnoxedUp.getFile', file: sFilename, to: sToFile, type: sType});
+
+        var bError  = false;
+        var oToFile = fs.createWriteStream(sToFile, {
+            encoding: sType
+        });
+
+        oToFile.on('error', function(oError) {
+            bError = true;
+            syslog.error({action: 'KnoxedUp.getFile.error', error: oError});
+            fCallback(oError);
+        });
+
+        oToFile.on('close', function() {
+            if (!bError) {
+                syslog.debug({action: 'KnoxedUp.getFile.write.done', output: sToFile});
+                fCallback(null, sToFile);
+            }
+        });
+
+        var oRequest = this._get(sFilename, sType, {}, function(oError, oResponse, sData) {
+            if (oError) {
+                bError = true;
+                syslog.error({action: 'KnoxedUp.getFile.error', error: oError});
+                oToFile.destroy();
+
+                fs.exists(sToFile, function(bExists) {
+                    if (bExists) {
+                        fs.unlink(sToFile, function() {
+                            syslog.debug({action: 'KnoxedUp.getFile.unlink.done'});
+                            fCallback(oError);
+                        });
+                    } else {
+                        syslog.debug({action: 'KnoxedUp.getFile.done'});
+                        fCallback(oError);
+                    }
+                });
+            }
+        });
+
+        oRequest.on('response', function(oResponse) {
+            oResponse.on('data', function(sChunk) {
+                oToFile.write(sChunk);
+            });
+
+            oResponse.on('end', function() {
+                syslog.debug({action: 'KnoxedUp.getFile.read.done'});
+                oToFile.end();
+            });
+        });
     };
 
     KnoxedUp.prototype.putFile = function (sFilename, sType, oHeaders, fCallback) {
@@ -737,13 +794,12 @@
      * @private
      */
     KnoxedUp.prototype._toTemp = function(sTempFile, sFile, sType, sCheckHash, sExtension, fCallback) {
-        syslog.debug({action: 'KnoxedUp._toTemp', file: sTempFile, s3: sFile});
+        syslog.debug({action: 'KnoxedUp._toTemp', file: sTempFile, s3: sFile, type: sType});
         var iStart = syslog.timeStart();
 
         async.auto({
-            get:             function(fAsyncCallback, oResults) { this._get( '/' + sFile, sType, {}, fAsyncCallback) }.bind(this),
-            write: ['get',   function(fAsyncCallback, oResults) { fs.writeFile(sTempFile, oResults.get[1], sType, fAsyncCallback) }],
-            move:  ['write', function(fAsyncCallback, oResults) { fsX.moveFileToHash(sTempFile, '/tmp', sExtension, fAsyncCallback) }],
+            get:             function(fAsyncCallback, oResults) { this.getFile(sFile, sTempFile, sType, fAsyncCallback) }.bind(this),
+            move:  ['get',   function(fAsyncCallback, oResults) { fsX.moveFileToHash(sTempFile, '/tmp', sExtension, fAsyncCallback) }],
             check: ['move',  function(fAsyncCallback, oResults) { this._checkHash (oResults.move.hash, sCheckHash, fAsyncCallback) }.bind(this)]
         }, function(oError, oResults) {
             if (oError) {
