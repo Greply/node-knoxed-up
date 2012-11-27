@@ -21,6 +21,10 @@
     var sPath     = aPath.join('/') + '/' + sFileHash;
 
     exports["Test Download To Temp"] = {
+        setUp: function (callback) {
+            fsX.clearTmp(callback);
+        },
+
         tearDown: function (callback) {
             // clean up
             fsX.removeDirectory(fsX.getTmpSync() + sFileHash, function() {
