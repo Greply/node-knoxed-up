@@ -122,15 +122,11 @@
                             if (iLengthTotal !== null) {
                                 oLog.length = {
                                     download: iLength,
-                                    total:    iLengthTotal,
-                                    data:     sData.length
+                                    total:    iLengthTotal
                                 };
 
                                 if (iLength < iLengthTotal) {
                                     oLog.error = new Error('Content Length did not match Header');
-                                    return fDone(oLog.error);
-                                } else if (sData.length != iLength) {
-                                    oLog.error = new Error('Data Length did not match Content Length');
                                     return fDone(oLog.error);
                                 }
                             }
@@ -172,6 +168,7 @@
 
         var bError  = false;
         var oToFile = fs.createWriteStream(sToFile, {
+            flags:    'w',
             encoding: sType
         });
 
@@ -192,7 +189,7 @@
             if (oError) {
                 bError = true;
                 syslog.error({action: 'KnoxedUp.getFile.error', error: oError});
-                oToFile.destroy();
+                oToFile.end();
 
                 fs.exists(sToFile, function(bExists) {
                     if (bExists) {
@@ -210,11 +207,10 @@
 
         oRequest.on('response', function(oResponse) {
             oResponse.on('data', function(sChunk) {
-                oToFile.write(sChunk);
+                oToFile.write(sChunk, sType);
             });
 
             oResponse.on('end', function() {
-                syslog.debug({action: 'KnoxedUp.getFile.read.done'});
                 oToFile.end();
             });
         });
@@ -799,7 +795,7 @@
 
         async.auto({
             get:             function(fAsyncCallback, oResults) { this.getFile(sFile, sTempFile, sType, fAsyncCallback) }.bind(this),
-            move:  ['get',   function(fAsyncCallback, oResults) { fsX.moveFileToHash(sTempFile, '/tmp', sExtension, fAsyncCallback) }],
+            move:  ['get',   function(fAsyncCallback, oResults) { fsX.moveFileToHash(oResults.get, '/tmp', sExtension, fAsyncCallback) }],
             check: ['move',  function(fAsyncCallback, oResults) { this._checkHash (oResults.move.hash, sCheckHash, fAsyncCallback) }.bind(this)]
         }, function(oError, oResults) {
             if (oError) {

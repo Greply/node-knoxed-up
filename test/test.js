@@ -31,13 +31,14 @@
         },
 
         "To Temp (Private)": function(test) {
-            test.expect(3);
+            test.expect(4);
 
             S3._toTemp('/tmp/' + sPath.split('/').pop(), sPath, 'binary', sFileHash, '', function(oError, sTempFile, sHash) {
+                test.ifError(oError,                      "Had Issue Downloading File To Temp");
                 test.equal(sHash,     sFileHash,          "Downloaded file has Correct Hash");
                 test.equal(sTempFile, '/tmp/' + sFileHash, "Temp file is Named Correctly");
 
-                fs.exists(sTempFile, function(bExists) {
+                fs.exists(sTempFile || '', function(bExists) {
                     test.ok(bExists, "File Exists in /tmp");
                     test.done();
                 });
@@ -45,13 +46,14 @@
         },
 
         "To Temp With Extension (Private)": function(test) {
-            test.expect(3);
+            test.expect(4);
 
             S3._toTemp('/tmp/' + sPath.split('/').pop(), sPath, 'binary', sFileHash, '.avi', function(oError, sTempFile, sHash) {
+                test.ifError(oError,                      "Had Issue Downloading File To Temp");
                 test.equal(sHash,     sFileHash,          "Downloaded file has Correct Hash");
                 test.equal(sTempFile, '/tmp/' + sFileHash + '.avi', "Temp file is Named Correctly");
 
-                fs.exists(sTempFile, function(bExists) {
+                fs.exists(sTempFile || '', function(bExists) {
                     test.ok(bExists, "File Exists in /tmp");
                     test.done();
                 });
@@ -68,13 +70,14 @@
         },
 
         "To Temp (Public)": function(test) {
-            test.expect(3);
+            test.expect(4);
 
             S3.toTemp(sPath, 'binary', sFileHash, function(oError, sTempFile, sHash) {
+                test.ifError(oError,                      "Had Issue Downloading File To Temp");
                 test.equal(sHash,     sFileHash,          "Downloaded file has Correct Hash");
                 test.equal(sTempFile, '/tmp/' + sFileHash, "Temp file is Named Correctly");
 
-                fs.exists(sTempFile, function(bExists) {
+                fs.exists(sTempFile || '', function(bExists) {
                     test.ok(bExists, "File Exists in /tmp");
                     test.done();
                 });
@@ -82,13 +85,14 @@
         },
 
         "To Temp With Extension (Public)": function(test) {
-            test.expect(3);
+            test.expect(4);
 
             S3.toTemp(sPath, 'binary', sFileHash, '.avi', function(oError, sTempFile, sHash) {
+                test.ifError(oError,                      "Had Issue Downloading File To Temp");
                 test.equal(sHash,     sFileHash,          "Downloaded file has Correct Hash");
                 test.equal(sTempFile, '/tmp/' + sFileHash + '.avi', "Temp file is Named Correctly");
 
-                fs.exists(sTempFile, function(bExists) {
+                fs.exists(sTempFile || '', function(bExists) {
                     test.ok(bExists, "File Exists in /tmp");
                     test.done();
                 });
@@ -105,14 +109,15 @@
         },
 
         "From Temp (Private)": function(test) {
-            test.expect(3);
+            test.expect(4);
 
             S3.toTemp(sPath, 'binary', sFileHash, function() {
                 S3._fromTemp('/tmp/' + sFileHash, sFileHash, '', function(oError, sTempFile, sHash) {
+                    test.ifError(oError,                      "Had Issue Downloading File From Temp");
                     test.equal(sHash,     sFileHash,          "Downloaded file has Correct Hash");
                     test.equal(sTempFile, '/tmp/' + sFileHash, "Temp file is Named Correctly");
 
-                    fs.exists(sTempFile, function(bExists) {
+                    fs.exists(sTempFile || '', function(bExists) {
                         test.ok(bExists, "File Exists in /tmp");
                         test.done();
                     });
@@ -121,14 +126,15 @@
         },
 
         "From Temp (Public)": function(test) {
-            test.expect(3);
+            test.expect(4);
 
             S3.toTemp(sPath, 'binary', sFileHash, function() {
                 S3.toTemp(sPath, 'binary', sFileHash, function(oError, sTempFile, sHash) {
+                    test.ifError(oError,                      "Had Issue Downloading File To Temp");
                     test.equal(sHash,     sFileHash,          "Downloaded file has Correct Hash");
                     test.equal(sTempFile, '/tmp/' + sFileHash, "Temp file is Named Correctly");
 
-                    fs.exists(sTempFile, function(bExists) {
+                    fs.exists(sTempFile || '', function(bExists) {
                         test.ok(bExists, "File Exists in /tmp");
                         test.done();
                     });
@@ -137,10 +143,12 @@
         },
 
         "Set Size and Headers (Private)": function(test) {
-            test.expect(3);
+            test.expect(5);
 
             S3.toTemp(sPath, 'binary', sFileHash, function(oError, sTempFile, sHash) {
+                test.ifError(oError,                      "Had Issue Downloading File To Temp");
                 S3._setSizeAndHashHeaders('/tmp/' + sFileHash, {}, function(oError, oHeaders) {
+                    test.ifError(oError,                                                                "Had Issue Setting Headers");
                     test.equal(oHeaders['Content-Length'],  56322,                                      "Content Length Set Correctly");
                     test.equal(oHeaders['Content-MD5'],     'P6yNY2+gvwgbheTaaKdrMQ==',                 "MD5 Set Correctly");
                     test.equal(oHeaders['x-amz-meta-sha1'], '62228dc488ce4a2619e460c117254db404981b1e', "SHA1 Set Correctly");
