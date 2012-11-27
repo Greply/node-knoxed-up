@@ -729,7 +729,7 @@
         syslog.debug({action: 'KnoxedUp.toTemp', file: sFile, type: sType, extension: sExtension});
         fCallback       = typeof fCallback       == 'function' ? fCallback        : function() {};
 
-        var sTempFile  = '/tmp/' + sFile.split('/').pop();
+        var sTempFile  = fsX.getTmpSync() + sFile.split('/').pop();
 
         if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
             this._fromTemp(this.getLocalPath(sFile), sCheckHash, sExtension, fCallback);
@@ -765,7 +765,7 @@
         async.auto({
             hash:           function(fAsyncCallback, oResults) { fsX.hashFile(sTempFile, fAsyncCallback) },
             check: ['hash', function(fAsyncCallback, oResults) { this._checkHash (oResults.hash, sCheckHash, fAsyncCallback) }.bind(this)],
-            copy:  ['hash', function(fAsyncCallback, oResults) { fsX.copyFile(sTempFile,  '/tmp/' + oResults.hash + sExtension, fAsyncCallback) }],
+            copy:  ['hash', function(fAsyncCallback, oResults) { fsX.copyFile(sTempFile,  fsX.getTmpSync() + oResults.hash + sExtension, fAsyncCallback) }],
             chmod: ['copy', function(fAsyncCallback, oResults) { fs.chmod(oResults.copy, 0777, fAsyncCallback) }]
         }, function(oError, oResults) {
             if (oError) {
@@ -795,7 +795,7 @@
 
         async.auto({
             get:             function(fAsyncCallback, oResults) { this.getFile(sFile, sTempFile, sType, fAsyncCallback) }.bind(this),
-            move:  ['get',   function(fAsyncCallback, oResults) { fsX.moveFileToHash(oResults.get, '/tmp', sExtension, fAsyncCallback) }],
+            move:  ['get',   function(fAsyncCallback, oResults) { fsX.moveFileToHash(oResults.get, fsX.getTmpSync(), sExtension, fAsyncCallback) }],
             check: ['move',  function(fAsyncCallback, oResults) { this._checkHash (oResults.move.hash, sCheckHash, fAsyncCallback) }.bind(this)]
         }, function(oError, oResults) {
             if (oError) {

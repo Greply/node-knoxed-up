@@ -24,7 +24,7 @@ var i = 0;
 var n = 1;
 
 var go = function(i,n,sHash) {
-    var sFrom = '/tmp/' + sHash;
+    var sFrom = fsX.getTmpSync() + sHash;
     var sTo = getPath(sHash);
     
     var md5 = crypto.createHash('md5');

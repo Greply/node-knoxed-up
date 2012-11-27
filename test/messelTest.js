@@ -1,6 +1,7 @@
 var KnoxedUp    = require('../knoxed-up');
 var exec        = require('child_process').exec;
 var fs          = require('fs');
+var fsX         = require('fs-extended');
 var oConfig     = require('/etc/cameo/.config.js');
 
 var arguments = process.argv.splice(2);
@@ -18,7 +19,7 @@ var n = 10;
 var go = function(i,n,sHash) {
     var sFrom = getPath(sHash);
     // rm file if it exists
-    var fname = '/tmp/' + sHash;
+    var fname = fsX.getTmpSync() + sHash;
     if (fs.existsSync(fname)) fs.unlinkSync(fname);
 
     s3.toTemp(sFrom, 'binary', sHash, function(oError, sTempFile, sHash) {
