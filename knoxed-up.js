@@ -238,7 +238,9 @@
 
             fCallback(null, getFiles());
         } else {
+            syslog.pause(true);
             this._get('/?prefix=' + sPrefix + '&max-keys=' + iMax, 'utf-8', {}, function(oError, oResponse, sData) {
+                syslog.pause(false);
                 if (oError) {
                     syslog.error({action: 'KnoxedUp.getFileList.error', error:oError});
                     fCallback(oError);
