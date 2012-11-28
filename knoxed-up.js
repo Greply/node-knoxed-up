@@ -796,19 +796,7 @@
         if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
             this._fromTemp(this.getLocalPath(sFile), sCheckHash, sExtension, fCallback);
         } else {
-            fs.exists(sTempFile, function(bExists) {
-                if (bExists) {
-                    this._fromTemp(sTempFile, sCheckHash, sExtension, fCallback);
-                } else {
-                    fs.exists(sTempFile + sExtension, function(bExists) {
-                        if (bExists) {
-                            this._fromTemp(sTempFile + sExtension, sCheckHash, sExtension, fCallback);
-                        } else {
-                            this._toTemp(sTempFile, sFile, sType, sCheckHash, sExtension, fCallback);
-                        }
-                    }.bind(this));
-                }
-            }.bind(this));
+            this._toTemp(sTempFile, sFile, sType, sCheckHash, sExtension, fCallback);
         }
     };
 
