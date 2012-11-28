@@ -148,7 +148,7 @@
                         fDone(fCallback, null, oResponse, sData);
                     });
             }
-        });
+        }.bind(this));
 
         oRequest.end();
 
