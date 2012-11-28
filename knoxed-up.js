@@ -96,7 +96,17 @@
                 }
             }
 
-            if(oResponse.statusCode > 399) {
+            if (oResponse.statusCode == 500) {
+                oLog.action += '.request.hang_up.retry';
+                oLog.error = new Error('S3 Error Code ' + oResponse.statusCode);
+                if (iRetries > 3) {
+                    oLog.action += '.max';
+                    fDone(fCallback, oLog.error);
+                } else {
+                    syslog.warn(oLog);
+                    this._command(sCommand, sFilename, sType, oHeaders, fCallback, iRetries + 1);
+                }
+            } else if(oResponse.statusCode > 399) {
                 switch(oResponse.statusCode) {
                     case 404:
                         oLog.error = new Error('File Not Found');
@@ -467,6 +477,16 @@
                             } else {
                                 oLog.action += '.request.hang_up.retry';
                                 oLog.error   = (util.isError(oError)) ? new Error(oError.message) : oError;
+                                syslog.warn(oLog);
+                                this.putStream(sFrom, sTo, oHeaders, fCallback, iRetries + 1);
+                            }
+                        } else if(oResponse.statusCode == 500) {
+                            oLog.error   = new Error('S3 Error Code ' + oResponse.statusCode);
+                            oLog.action += '.request.500.retry';
+                            if (iRetries > 3) {
+                                oLog.action += '.max';
+                                fDone(fCallback, oLog.error);
+                            } else {
                                 syslog.warn(oLog);
                                 this.putStream(sFrom, sTo, oHeaders, fCallback, iRetries + 1);
                             }
