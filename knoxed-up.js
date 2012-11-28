@@ -187,7 +187,7 @@
 
         oToFile.on('error', function(oError) {
             bError = true;
-            syslog.error({action: 'KnoxedUp.getFile.error', error: oError});
+            syslog.error({action: 'KnoxedUp.getFile.write.error', error: oError});
             fCallback(oError);
         });
 
@@ -202,8 +202,8 @@
         var oRequest = this._get(sFilename, sType, {}, function(oError, oResponse, sData, iRetries) {
             syslog.debug({action: 'KnoxedUp.getFile.got'});
             if (oError) {
-                bError = true;
                 syslog.error({action: 'KnoxedUp.getFile.error', error: oError});
+                bError = true;
                 oToFile.end();
 
                 fs.exists(sToFile, function(bExists) {
@@ -243,7 +243,9 @@
             syslog.debug({action: 'KnoxedUp.getFile.response'});
 
             oResponse.on('data', function(sChunk) {
-                oToFile.write(sChunk, sType);
+                if (!bError) {
+                    oToFile.write(sChunk, sType);
+                }
             });
 
             oResponse.on('end', function() {
