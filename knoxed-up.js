@@ -41,25 +41,27 @@
      * @private
      */
     KnoxedUp.prototype._command = function (sCommand, sFilename, sType, oHeaders, fCallback, iRetries) {
-        iRetries  = iRetries !== undefined ? iRetries : 0;
+        var iRetries     = iRetries !== undefined ? iRetries : 0;
+        var bHasCallback = typeof fCallback == 'function';
 
         var oLog = {
-            action: 'KnoxedUp._command.' + sCommand,
-            command: sCommand,
-            file:    sFilename,
-            headers: oHeaders,
-            retries: iRetries
+            action:  'KnoxedUp._command.' + sCommand,
+            command:  sCommand,
+            file:     sFilename,
+            headers:  oHeaders,
+            retries:  iRetries,
+            callback: bHasCallback
         };
 
         var iStart = syslog.timeStart(oLog);
-        var fDone  = function(oError, oResponse, sData) {
+        var fDone  = function(fDoneCallback, oError, oResponse, sData) {
             if (oError) {
                 syslog.error(oLog);
             } else {
                 syslog.timeStop(iStart, oLog);
             }
 
-            fCallback(oError, oResponse, sData);
+            fDoneCallback(oError, oResponse, sData);
         };
 
         var oRequest     = this.Client[sCommand](sFilename, oHeaders);
@@ -72,7 +74,7 @@
                 if (iRetries > 3) {
                     oLog.action += '.request.hang_up.retry.max';
                     oLog.error   = oError;
-                    fDone(oLog.error);
+                    fDone(fCallback, oLog.error);
                 } else {
                     oLog.action += '.request.hang_up.retry';
                     syslog.warn(oLog);
@@ -81,7 +83,7 @@
             } else {
                 oLog.action += '.request.error';
                 oLog.error   = oError;
-                fDone(oLog.error);
+                fDone(fCallback, oLog.error);
             }
         }.bind(this));
 
@@ -105,13 +107,13 @@
                         break;
                 }
 
-                fDone(oLog.error);
+                fDone(fCallback, oLog.error);
             } else {
                 oResponse.setEncoding(sType);
                 oResponse
                     .on('error', function(oError){
                         oLog.error = oError;
-                        fDone(oLog.error);
+                        fDone(fCallback, oLog.error);
                     })
                     .on('data', function(sChunk){
                         sData   += sChunk;
@@ -127,13 +129,13 @@
 
                                 if (iLength < iLengthTotal) {
                                     oLog.error = new Error('Content Length did not match Header');
-                                    return fDone(oLog.error);
+                                    return fDone(fCallback, oLog.error);
                                 }
                             }
                         }
 
                         oLog.action += '.done';
-                        fDone(null, oResponse, sData);
+                        fDone(fCallback, null, oResponse, sData);
                     });
             }
         });
@@ -399,26 +401,28 @@
      * @param {Integer} [iRetries]
      */
     KnoxedUp.prototype.putStream = function(sFrom, sTo, oHeaders, fCallback, iRetries) {
-        iRetries  = iRetries !== undefined ? iRetries : 0;
-        fCallback = typeof fCallback == 'function' ? fCallback : function() {};
+        var bHasCallback = typeof fCallback == 'function';
+        var iRetries    = iRetries !== undefined ? iRetries : 0;
+        var fCallback   = bHasCallback ? fCallback : function() {};
 
         var oLog = {
-            action: 'KnoxedUp.putStream',
-            from:    sFrom,
-            to:      sTo,
-            headers: oHeaders,
-            retries: iRetries
+            action:    'KnoxedUp.putStream',
+            from:     sFrom,
+            to:       sTo,
+            headers:  oHeaders,
+            retries:  iRetries,
+            callback: bHasCallback
         };
 
         var iStart = syslog.timeStart(oLog);
-        var fDone  = function(oError, sTo) {
+        var fDone  = function(fFinishedCallback, oError, sTo) {
             if (oError) {
                 syslog.error(oLog);
             } else {
                 syslog.timeStop(iStart, oLog);
             }
 
-            fCallback(oError, sTo);
+            fFinishedCallback(oError, sTo);
         };
 
         if (KnoxedUp.isLocal()) {
@@ -447,9 +451,9 @@
 
                     oStream.on('error', function(oError) {
                         oStream.destroy();
-                        
+
                         oLog.error = new Error(oError);
-                        fDone(oLog.error);
+                        fDone(fCallback, oLog.error);
                     });
 
                     var oRequest = this.Client.putStream(oStream, sTo, oPreppedHeaders, function(oError, oResponse) {
@@ -459,7 +463,7 @@
                             if (iRetries > 3) {
                                 oLog.action += '.request.hang_up.retry.max';
                                 oLog.error   = oError;
-                                fDone(oLog.error);
+                                fDone(fCallback, oLog.error);
                             } else {
                                 oLog.action += '.request.hang_up.retry';
                                 oLog.error   = (util.isError(oError)) ? new Error(oError.message) : oError;
@@ -468,10 +472,10 @@
                             }
                         } else if(oResponse.statusCode > 399) {
                             oLog.error = new Error('S3 Error Code ' + oResponse.statusCode);
-                            fDone(oLog.error);
+                            fDone(fCallback, oLog.error);
                         } else {
                             oLog.action += '.done';
-                            fDone(null, sTo);
+                            fDone(fCallback, null, sTo);
                         }
                     }.bind(this));
 
