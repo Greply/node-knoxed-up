@@ -726,10 +726,11 @@
             sExtension        = path.extname(sFile);
         }
 
-        syslog.debug({action: 'KnoxedUp.toTemp', file: sFile, type: sType, extension: sExtension});
         fCallback       = typeof fCallback       == 'function' ? fCallback        : function() {};
 
         var sTempFile  = fsX.getTmpSync() + sFile.split('/').pop();
+
+        syslog.debug({action: 'KnoxedUp.toTemp', file: sFile, type: sType, extension: sExtension, temp: sTempFile});
 
         if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
             this._fromTemp(this.getLocalPath(sFile), sCheckHash, sExtension, fCallback);
