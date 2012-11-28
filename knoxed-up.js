@@ -61,7 +61,7 @@
                 syslog.timeStop(iStart, oLog);
             }
 
-            fDoneCallback(oError, oResponse, sData);
+            fDoneCallback(oError, oResponse, sData, iRetries);
         };
 
         var oRequest     = this.Client[sCommand](sFilename, oHeaders);
@@ -179,6 +179,7 @@
         syslog.debug({action: 'KnoxedUp.getFile', file: sFilename, to: sToFile, type: sType});
 
         var bError  = false;
+        var bClosed = false;
         var oToFile = fs.createWriteStream(sToFile, {
             flags:    'w',
             encoding: sType
@@ -191,13 +192,15 @@
         });
 
         oToFile.on('close', function() {
+            bClosed = true;
             if (!bError) {
                 syslog.debug({action: 'KnoxedUp.getFile.write.done', output: sToFile});
                 fCallback(null, sToFile);
             }
         });
 
-        var oRequest = this._get(sFilename, sType, {}, function(oError, oResponse, sData) {
+        var oRequest = this._get(sFilename, sType, {}, function(oError, oResponse, sData, iRetries) {
+            syslog.debug({action: 'KnoxedUp.getFile.got'});
             if (oError) {
                 bError = true;
                 syslog.error({action: 'KnoxedUp.getFile.error', error: oError});
@@ -214,15 +217,37 @@
                         fCallback(oError);
                     }
                 });
+            } else if (!bClosed) {
+                syslog.debug({action: 'KnoxedUp.getFile.response.end'});
+
+                // Weird case where file may be incomplete
+                if (iRetries) {
+                    syslog.debug({action: 'KnoxedUp.getFile.response.end.retried'});
+                    bError = true;
+                    oToFile.end();
+
+                    fs.writeFile(sToFile, sData, sType, function(oWriteError) {
+                        if (oWriteError) {
+                            syslog.error({action: 'KnoxedUp.getFile.writeFile.error', error: oWriteError});
+                            fCallback(oWriteError);
+                        } else {
+                            syslog.debug({action: 'KnoxedUp.getFile.writeFile.done', output: sToFile});
+                            fCallback(null, sToFile);
+                        }
+                    })
+                }
             }
         });
 
         oRequest.on('response', function(oResponse) {
+            syslog.debug({action: 'KnoxedUp.getFile.response'});
+
             oResponse.on('data', function(sChunk) {
                 oToFile.write(sChunk, sType);
             });
 
             oResponse.on('end', function() {
+                syslog.debug({action: 'KnoxedUp.getFile.response.end'});
                 oToFile.end();
             });
         });
