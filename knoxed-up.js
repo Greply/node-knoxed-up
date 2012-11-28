@@ -227,6 +227,7 @@
     };
 
     KnoxedUp.prototype._setSizeAndHashHeaders = function (sFile, oHeaders, fCallback) {
+        syslog.debug({action: 'KnoxedUp._setSizeAndHashHeaders', file: sFile, headers: oHeaders});
         async.parallel({
             stat: function(fAsyncCallback) { fs.stat(            sFile, fAsyncCallback); },
             md5:  function(fAsyncCallback) { fsX.md5FileToBase64(sFile, fAsyncCallback); },
@@ -240,6 +241,7 @@
                 oHeaders['Content-MD5']     = oResults.md5;
                 oHeaders['x-amz-meta-sha1'] = oResults.sha1;
 
+                syslog.debug({action: 'KnoxedUp._setSizeAndHashHeaders.done', file: sFile, headers: oHeaders});
                 fCallback(null, oHeaders);
             }
         });
@@ -442,6 +444,14 @@
                     fCallback(oError);
                 } else {
                     var oStream  = fs.createReadStream(sFrom);
+
+                    oStream.on('error', function(oError) {
+                        oStream.destroy();
+                        
+                        oLog.error = new Error(oError);
+                        fDone(oLog.error);
+                    });
+
                     var oRequest = this.Client.putStream(oStream, sTo, oPreppedHeaders, function(oError, oResponse) {
                         oStream.destroy();
 
