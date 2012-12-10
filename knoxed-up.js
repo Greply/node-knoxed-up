@@ -13,7 +13,8 @@
             this.oConfig = {
                 key:    oConfig.AMAZON.SERVER.ID,
                 secret: oConfig.AMAZON.SERVER.SECRET,
-                bucket: oConfig.AMAZON.BUCKET
+                bucket: oConfig.AMAZON.BUCKET,
+                port:   80
             };
 
             this.sOriginalBucket = oConfig.AMAZON.BUCKET;
@@ -674,7 +675,8 @@
             var oDestination = new KnoxedUp({
                 key:    this.Client.key,
                 secret: this.Client.secret,
-                bucket: sBucket
+                bucket: sBucket,
+                port:   80
             });
 
             oDestination._put(sTo, 'utf-8', oOptions, function(oError, oRequest, sData) {

@@ -13,7 +13,8 @@
     var S3 = new KnoxedUp({
         key:    'AKIAJ7CBLVZ2DSXOOBWQ',
         secret: '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',
-        bucket: 'media.cameoapp.com'
+        bucket: 'media.cameoapp.com',
+        port:   80
     });
 
     var sFileHash = '62228dc488ce4a2619e460c117254db404981b1e';
@@ -352,7 +353,8 @@
             var S3b = new KnoxedUp({
                 key:    'AKIAJ7CBLVZ2DSXOOBWQ',
                 secret: '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',
-                bucket: sToBucket
+                bucket: sToBucket,
+                port:   80
             });
 
             var sTestFile  =  'test/copy_delete_me';
