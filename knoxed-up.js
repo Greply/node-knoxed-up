@@ -863,21 +863,13 @@
 
         var sCachePath   = '/tmp/cameo-cache';
         var sCachedFile  = path.join(sCachePath, sHash);
-        var sDestination = path.join(fsX.getTmpSync(), sHash + sExtension);
         fs.exists(sCachedFile, function(bExists) {
             if (bExists) {
-                fsX.copyFile(sCachedFile, sDestination, function(oCopyError, sCopied) {
-                    if (oCopyError) {
-                        fCallback(oCopyError);
+                fsX.hashFile(sCachedFile, function(oHashError, sCopied) {
+                    if (oHashError) {
+                        fCallback(oHashError);
                     } else {
-                        this._checkHash(path.basename(sCopied, path.extname(sCopied)), sHash, function(oCheckError, sCheckedHash) {
-                            if (oCheckError) {
-                                fCallback(oCheckError);
-                            } else {
-                                syslog.debug({action: 'KnoxedUp._getCachedFile.found', file: sCopied, hash: sHash});
-                                fCallback(null, sCopied, sHash);
-                            }
-                        }.bind(this));
+                        fCallback(null, sCachedFile, sHash);
                     }
                 }.bind(this));
             } else {
