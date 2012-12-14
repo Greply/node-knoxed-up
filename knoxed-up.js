@@ -862,7 +862,7 @@
         sExtension = KnoxedUp._dotExtension(sExtension);
 
         var sCachePath   = '/tmp/cameo-cache';
-        var sCachedFile  = path.join(sCachePath, sHash + sExtension));
+        var sCachedFile  = path.join(sCachePath, sHash + sExtension);
         var sDestination = path.join(fsX.getTmpSync(), sHash + sExtension);
         fs.exists(sCachedFile, function(bExists) {
             if (bExists) {
