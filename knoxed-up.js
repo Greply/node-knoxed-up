@@ -789,7 +789,8 @@
             sExtension        = path.extname(sFile);
         }
 
-        fCallback       = typeof fCallback       == 'function' ? fCallback        : function() {};
+        fCallback  = typeof fCallback       == 'function' ? fCallback        : function() {};
+        sExtension = KnoxedUp._dotExtension(sExtension);
 
         var sTempFile  = fsX.getTmpSync() + sFile.split('/').pop();
 
@@ -798,7 +799,13 @@
         if (KnoxedUp.isLocal() && this._localFileExists(sFile)) {
             this._fromTemp(this.getLocalPath(sFile), sCheckHash, sExtension, fCallback);
         } else {
-            this._toTemp(sTempFile, sFile, sType, sCheckHash, sExtension, fCallback);
+            this._getCachedFile(sCheckHash, sExtension, function(oCachedError, sCachedFile) {
+                if (sCachedFile) {
+                    fCallback(null, sCachedFile, sCheckHash);
+                } else {
+                    this._toTemp(sTempFile, sFile, sType, sCheckHash, sExtension, fCallback);
+                }
+            }.bind(this));
         }
     };
 
@@ -813,6 +820,8 @@
     KnoxedUp.prototype._fromTemp = function(sTempFile, sCheckHash, sExtension, fCallback) {
         syslog.debug({action: 'KnoxedUp._fromTemp', file: sTempFile});
         var iStart = syslog.timeStart();
+
+        sExtension = KnoxedUp._dotExtension(sExtension);
 
         async.auto({
             hash:           function(fAsyncCallback, oResults) { fsX.hashFile(sTempFile, fAsyncCallback) },
@@ -830,6 +839,77 @@
         });
     };
 
+    KnoxedUp._dotExtension = function(sExtension) {
+        if (sExtension
+        &&  sExtension.length) {
+            return '.' + sExtension.replace(/^\.+/g, '');
+        }
+
+        return sExtension;
+    };
+
+    /**
+     *
+     * @param {String} sHash
+     * @param {String} sExtension
+     * @param {Function} fCallback
+     * @private
+     */
+    KnoxedUp.prototype._getCachedFile = function(sHash, sExtension, fCallback) {
+        syslog.debug({action: 'KnoxedUp._getCachedFile', hash: sHash, extension: sExtension});
+
+        sExtension = KnoxedUp._dotExtension(sExtension);
+
+        var sCachePath   = '/tmp/cameo-cache';
+        var sCachedFile  = path.join(sCachePath, sHash);
+        var sDestination = path.join(fsX.getTmpSync(), sHash + sExtension);
+        fs.exists(sCachedFile, function(bExists) {
+            if (bExists) {
+                fsX.copyFile(sCachedFile, sDestination, function(oCopyError, sCopied) {
+                    if (oCopyError) {
+                        fCallback(oCopyError);
+                    } else {
+                        this._checkHash(path.basename(sCopied, path.extname(sCopied)), sHash, function(oCheckError, sCheckedHash) {
+                            if (oCheckError) {
+                                fCallback(oCheckError);
+                            } else {
+                                syslog.debug({action: 'KnoxedUp._getCachedFile.found', file: sCopied, hash: sHash});
+                                fCallback(null, sCopied, sHash);
+                            }
+                        }.bind(this));
+                    }
+                }.bind(this));
+            } else {
+                fCallback(null, null);
+            }
+        }.bind(this));
+    };
+
+    /**
+     *
+     * @param {String} sFile
+     * @param {Function} fCallback
+     * @private
+     */
+    KnoxedUp.prototype._cacheFile = function(sFile, fCallback) {
+        syslog.debug({action: 'KnoxedUp._cacheFile', file: sFile});
+
+        var sCachePath = '/tmp/cameo-cache';
+        fsX.mkdirP(sCachePath, 0777, function(oError, sPath) {
+            if (oError) {
+                fCallback(oError);
+            } else {
+                fsX.copyFileToHash(sFile, sCachePath, '', function(oCopyError, oResult) {
+                    if (oCopyError) {
+                        fCallback(oCopyError);
+                    } else {
+                        syslog.debug({action: 'KnoxedUp._cacheFile.cached', file: sFile});
+                        fCallback(null);
+                    }
+                });
+            }
+        });
+    };
 
     /**
      *
@@ -837,7 +917,7 @@
      * @param {String} sFile
      * @param {String} sType
      * @param {String} sCheckHash
-     * @param {String} [sExtension]
+     * @param {String} sExtension
      * @param {Function} fCallback
      * @private
      */
@@ -845,10 +925,13 @@
         syslog.debug({action: 'KnoxedUp._toTemp', file: sTempFile, s3: sFile, type: sType});
         var iStart = syslog.timeStart();
 
+        sExtension = KnoxedUp._dotExtension(sExtension);
+
         async.auto({
             get:             function(fAsyncCallback, oResults) { this.getFile(sFile, sTempFile, sType, fAsyncCallback) }.bind(this),
             move:  ['get',   function(fAsyncCallback, oResults) { fsX.moveFileToHash(oResults.get, fsX.getTmpSync(), sExtension, fAsyncCallback) }],
-            check: ['move',  function(fAsyncCallback, oResults) { this._checkHash (oResults.move.hash, sCheckHash, fAsyncCallback) }.bind(this)]
+            check: ['move',  function(fAsyncCallback, oResults) { this._checkHash (oResults.move.hash, sCheckHash, fAsyncCallback) }.bind(this)],
+            cache: ['check', function(fAsyncCallback, oResults) { this._cacheFile(oResults.move.path, fAsyncCallback) }.bind(this)]
         }, function(oError, oResults) {
             if (oError) {
                 syslog.error({action: 'KnoxedUp.action.error', error: oError});
