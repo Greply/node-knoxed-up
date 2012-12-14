@@ -871,12 +871,13 @@
                         if (oCopyError) {
                             fCallback(oCopyError);
                         } else {
-                            this._checkHash(path.basename(sCopied, path.extname(sCopied)), sHash, function(oCheckError, sCheckedHash) {
-                                if (oCheckError) {
-                                    fCallback(oCheckError);
+                            fsX.hashFile(sDestination, function(oHashError, sFileHash) {
+                                if (oHashError) {
+                                    fCallback(oHashError);
+                                } else if (sHash == sFileHash) {
+                                    fCallback(null, sDestination, sFileHash);
                                 } else {
-                                    syslog.debug({action: 'KnoxedUp._getCachedFile.found', file: sCopied, hash: sHash});
-                                    fCallback(null, sCopied, sHash);
+                                    fCallback(null, null);
                                 }
                             }.bind(this));
                         }
