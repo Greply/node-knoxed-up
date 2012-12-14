@@ -179,6 +179,7 @@
     KnoxedUp.prototype.getFile = function (sFilename, sToFile, sType, fCallback) {
         syslog.debug({action: 'KnoxedUp.getFile', file: sFilename, to: sToFile, type: sType});
 
+        var iStart  = syslog.timeStart();
         var bError  = false;
         var bClosed = false;
         var oToFile = fs.createWriteStream(sToFile, {
@@ -232,7 +233,7 @@
                             syslog.error({action: 'KnoxedUp.getFile.writeFile.error', error: oWriteError});
                             fCallback(oWriteError);
                         } else {
-                            syslog.debug({action: 'KnoxedUp.getFile.writeFile.done', output: sToFile});
+                            syslog.timeStop(iStart, {action: 'KnoxedUp.getFile.writeFile.done', output: sToFile});
                             fCallback(null, sToFile);
                         }
                     })
@@ -893,6 +894,7 @@
      */
     KnoxedUp.prototype._cacheFile = function(sFile, fCallback) {
         syslog.debug({action: 'KnoxedUp._cacheFile', file: sFile});
+        var iStart = syslog.timeStart();
 
         var sCachePath = '/tmp/cameo-cache';
         fsX.mkdirP(sCachePath, 0777, function(oError, sPath) {
@@ -903,7 +905,7 @@
                     if (oCopyError) {
                         fCallback(oCopyError);
                     } else {
-                        syslog.debug({action: 'KnoxedUp._cacheFile.cached', file: sFile});
+                        syslog.timeStop(iStart, {action: 'KnoxedUp._cacheFile.cached', file: sFile});
                         fCallback(null);
                     }
                 });
@@ -934,10 +936,10 @@
             cache: ['check', function(fAsyncCallback, oResults) { this._cacheFile(oResults.move.path, fAsyncCallback) }.bind(this)]
         }, function(oError, oResults) {
             if (oError) {
-                syslog.error({action: 'KnoxedUp.action.error', error: oError});
+                syslog.error({action: 'KnoxedUp._toTemp.error', error: oError});
                 fCallback(oError);
             } else {
-                syslog.timeStop(iStart, {action: 'KnoxedUp.action.done', hash: oResults.hash, file: oResults.copy});
+                syslog.timeStop(iStart, {action: 'KnoxedUp._toTemp.done', hash: oResults.hash, file: oResults.copy});
                 fCallback(null, oResults.move.path, oResults.move.hash);
             }
         });
