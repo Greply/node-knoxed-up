@@ -866,6 +866,7 @@
         var sDestination = path.join(fsX.getTmpSync(), sHash + sExtension);
         fs.exists(sCachedFile, function(bExists) {
             if (bExists) {
+                /*  Copies the file.  Going to try this out using the actual cached file for now
                 if (sExtension.length) {
                     fsX.copyFile(sCachedFile, sDestination, function(oCopyError, sCopied) {
                         if (oCopyError) {
@@ -884,17 +885,18 @@
                         }
                     }.bind(this));
                 } else {
-                    fsX.hashFile(sCachedFile, function(oHashError, sFileHash) {
-                        if (oHashError) {
-                            fCallback(oHashError);
-                        } else if (sHash == sFileHash) {
-                            syslog.debug({action: 'KnoxedUp._getCachedFile.found', file: sDestination});
-                            fCallback(null, sCachedFile, sFileHash);
-                        } else {
-                            fCallback(null, null);
-                        }
-                    }.bind(this));
-                }
+                */
+                fsX.hashFile(sCachedFile, function(oHashError, sFileHash) {
+                    if (oHashError) {
+                        fCallback(oHashError);
+                    } else if (sHash == sFileHash) {
+                        syslog.debug({action: 'KnoxedUp._getCachedFile.found', file: sDestination});
+                        fCallback(null, sCachedFile, sFileHash);
+                    } else {
+                        fCallback(null, null);
+                    }
+                }.bind(this));
+                // }
             } else {
                 fCallback(null, null);
             }
@@ -916,7 +918,8 @@
             if (oError) {
                 fCallback(oError);
             } else {
-                fsX.copyFileToHash(sFile, sCachePath, '', function(oCopyError, oResult) {
+                var sDestination = path.join(sCachePath, path.basename(sFile));
+                fsX.copyFile(sFile, sDestination, function(oCopyError, oResult) {
                     if (oCopyError) {
                         fCallback(oCopyError);
                     } else {
