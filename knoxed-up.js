@@ -875,6 +875,7 @@
                                 if (oHashError) {
                                     fCallback(oHashError);
                                 } else if (sHash == sFileHash) {
+                                    syslog.debug({action: 'KnoxedUp._getCachedFile.found', file: sDestination});
                                     fCallback(null, sDestination, sFileHash);
                                 } else {
                                     fCallback(null, null);
@@ -887,6 +888,7 @@
                         if (oHashError) {
                             fCallback(oHashError);
                         } else if (sHash == sFileHash) {
+                            syslog.debug({action: 'KnoxedUp._getCachedFile.found', file: sDestination});
                             fCallback(null, sCachedFile, sFileHash);
                         } else {
                             fCallback(null, null);
