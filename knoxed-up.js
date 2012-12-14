@@ -863,15 +863,35 @@
 
         var sCachePath   = '/tmp/cameo-cache';
         var sCachedFile  = path.join(sCachePath, sHash);
+        var sDestination = path.join(fsX.getTmpSync(), sHash + sExtension);
         fs.exists(sCachedFile, function(bExists) {
             if (bExists) {
-                fsX.hashFile(sCachedFile, function(oHashError, sCopied) {
-                    if (oHashError) {
-                        fCallback(oHashError);
-                    } else {
-                        fCallback(null, sCachedFile, sHash);
-                    }
-                }.bind(this));
+                if (sExtension.length) {
+                    fsX.copyFile(sCachedFile, sDestination, function(oCopyError, sCopied) {
+                        if (oCopyError) {
+                            fCallback(oCopyError);
+                        } else {
+                            this._checkHash(path.basename(sCopied, path.extname(sCopied)), sHash, function(oCheckError, sCheckedHash) {
+                                if (oCheckError) {
+                                    fCallback(oCheckError);
+                                } else {
+                                    syslog.debug({action: 'KnoxedUp._getCachedFile.found', file: sCopied, hash: sHash});
+                                    fCallback(null, sCopied, sHash);
+                                }
+                            }.bind(this));
+                        }
+                    }.bind(this));
+                } else {
+                    fsX.hashFile(sCachedFile, function(oHashError, sFileHash) {
+                        if (oHashError) {
+                            fCallback(oHashError);
+                        } else if (sHash == sFileHash) {
+                            fCallback(null, sCachedFile, sFileHash);
+                        } else {
+                            fCallback(null, null);
+                        }
+                    }.bind(this));
+                }
             } else {
                 fCallback(null, null);
             }
