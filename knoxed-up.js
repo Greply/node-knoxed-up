@@ -849,6 +849,10 @@
         return sExtension;
     };
 
+    KnoxedUp.getTmpCache = function() {
+        return '/tmp/cameo/cache/';
+    };
+
     /**
      *
      * @param {String} sHash
@@ -861,8 +865,7 @@
 
         sExtension = KnoxedUp._dotExtension(sExtension);
 
-        var sCachePath   = '/tmp/cameo-cache';
-        var sCachedFile  = path.join(sCachePath, sHash + sExtension);
+        var sCachedFile  = path.join(KnoxedUp.getTmpCache(), sHash + sExtension);
         var sDestination = path.join(fsX.getTmpSync(), sHash + sExtension);
         fs.exists(sCachedFile, function(bExists) {
             if (bExists) {
@@ -913,12 +916,11 @@
         syslog.debug({action: 'KnoxedUp._cacheFile', file: sFile});
         var iStart = syslog.timeStart();
 
-        var sCachePath = '/tmp/cameo-cache';
-        fsX.mkdirP(sCachePath, 0777, function(oError, sPath) {
+        fsX.mkdirP(KnoxedUp.getTmpCache(), 0777, function(oError, sPath) {
             if (oError) {
                 fCallback(oError);
             } else {
-                var sDestination = path.join(sCachePath, path.basename(sFile));
+                var sDestination = path.join(KnoxedUp.getTmpCache(), path.basename(sFile));
                 fsX.copyFile(sFile, sDestination, function(oCopyError, oResult) {
                     if (oCopyError) {
                         fCallback(oCopyError);
