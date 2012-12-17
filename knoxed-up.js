@@ -849,7 +849,7 @@
         return sExtension;
     };
 
-    KnoxedUp.__getTmpCache = function() {
+    KnoxedUp._getTmpCache = function() {
         return '/tmp/cameo/cache/';
     };
 
