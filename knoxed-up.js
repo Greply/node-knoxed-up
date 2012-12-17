@@ -869,26 +869,6 @@
         var sDestination = path.join(fsX.getTmpSync(), sHash + sExtension);
         fs.exists(sCachedFile, function(bExists) {
             if (bExists) {
-                /*  Copies the file.  Going to try this out using the actual cached file for now
-                if (sExtension.length) {
-                    fsX.copyFile(sCachedFile, sDestination, function(oCopyError, sCopied) {
-                        if (oCopyError) {
-                            fCallback(oCopyError);
-                        } else {
-                            fsX.hashFile(sDestination, function(oHashError, sFileHash) {
-                                if (oHashError) {
-                                    fCallback(oHashError);
-                                } else if (sHash == sFileHash) {
-                                    syslog.debug({action: 'KnoxedUp._getCachedFile.found', file: sDestination});
-                                    fCallback(null, sDestination, sFileHash);
-                                } else {
-                                    fCallback(null, null);
-                                }
-                            }.bind(this));
-                        }
-                    }.bind(this));
-                } else {
-                */
                 fsX.hashFile(sCachedFile, function(oHashError, sFileHash) {
                     if (oHashError) {
                         fCallback(oHashError);
@@ -899,7 +879,6 @@
                         fCallback(null, null);
                     }
                 }.bind(this));
-                // }
             } else {
                 fCallback(null, null);
             }
