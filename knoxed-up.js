@@ -861,6 +861,8 @@
      * @private
      */
     KnoxedUp.prototype._getCachedFile = function(sHash, sExtension, fCallback) {
+        return fCallback(null, null);
+
         syslog.debug({action: 'KnoxedUp._getCachedFile', hash: sHash, extension: sExtension});
 
         sExtension = KnoxedUp._dotExtension(sExtension);
@@ -892,6 +894,8 @@
      * @private
      */
     KnoxedUp.prototype._cacheFile = function(sFile, fCallback) {
+        return fCallback(null);
+
         syslog.debug({action: 'KnoxedUp._cacheFile', file: sFile});
         var iStart = syslog.timeStart();
 
