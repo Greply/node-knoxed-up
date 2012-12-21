@@ -189,7 +189,8 @@
 
         oToFile.on('error', function(oError) {
             bError = true;
-            syslog.error({action: 'KnoxedUp.getFile.write.error', error: oError});
+            syslog.error({action: 'KnoxedUp.getFile.write.error', message: 'failed to open file for writing: (' + sToFile + ')', 
+                error: oError});
             fCallback(oError);
         });
 
