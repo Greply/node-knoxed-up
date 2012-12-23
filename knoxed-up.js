@@ -259,7 +259,7 @@
                     oToFile.end();
                 });
             });
-        });
+        }.bind(this));
     };
 
     KnoxedUp.prototype.putFile = function (sFilename, sType, oHeaders, fCallback) {
