@@ -690,7 +690,7 @@
                     syslog.error({action: 'KnoxedUp.copyFileToBucket.error', error:  oError});
                     fCallback(oError);
                 } else {
-                    syslog.info({action: 'KnoxedUp.copyFileToBucket.done'});
+                    syslog.debug({action: 'KnoxedUp.copyFileToBucket.done'});
                     fCallback(null, sData);
                 }
             }.bind(this));
