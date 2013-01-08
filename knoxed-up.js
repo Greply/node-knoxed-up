@@ -944,7 +944,7 @@
             cache: ['check', function(fAsyncCallback, oResults) { this._cacheFile(oResults.move.path, fAsyncCallback) }.bind(this)]
         }, function(oError, oResults) {
             if (oError) {
-                syslog.error({action: 'KnoxedUp._toTemp.error', error: oError});
+                syslog.error({action: 'KnoxedUp._toTemp.error', error: oError, hash: sCheckHash, results: oResults});
                 fCallback(oError);
             } else {
                 syslog.timeStop(iStart, {action: 'KnoxedUp._toTemp.done', hash: oResults.hash, file: oResults.copy});
