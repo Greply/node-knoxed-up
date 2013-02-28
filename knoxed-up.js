@@ -186,13 +186,13 @@
             flags:    'w',
             encoding: sType
         });
-        
+
         oToFile.on('open', function(fd) {
 
 
             oToFile.on('error', function(oError) {
                 bError = true;
-                syslog.error({action: 'KnoxedUp.getFile.write.error', message: 'failed to open file for writing: (' + sToFile + ')', 
+                syslog.error({action: 'KnoxedUp.getFile.write.error', message: 'failed to open file for writing: (' + sToFile + ')',
                     error: oError});
                 fCallback(oError);
             });
@@ -276,8 +276,7 @@
         syslog.debug({action: 'KnoxedUp._setSizeAndHashHeaders', file: sFile, headers: oHeaders});
         async.parallel({
             stat: function(fAsyncCallback) { fs.stat(            sFile, fAsyncCallback); },
-            md5:  function(fAsyncCallback) { fsX.md5FileToBase64(sFile, fAsyncCallback); },
-            sha1: function(fAsyncCallback) { fsX.hashFile(       sFile, fAsyncCallback); }
+            md5:  function(fAsyncCallback) { fsX.md5FileToBase64(sFile, fAsyncCallback); }
         }, function(oError, oResults) {
             if (oError) {
                 syslog.error({action: 'KnoxedUp._setSizeAndHashHeaders.error', file: sFile, headers: oHeaders, error: oError});
@@ -285,7 +284,6 @@
             } else {
                 oHeaders['Content-Length']  = oResults.stat.size;
                 oHeaders['Content-MD5']     = oResults.md5;
-                oHeaders['x-amz-meta-sha1'] = oResults.sha1;
 
                 syslog.debug({action: 'KnoxedUp._setSizeAndHashHeaders.done', file: sFile, headers: oHeaders});
                 fCallback(null, oHeaders);
@@ -1079,7 +1077,7 @@
 
     KnoxedUp.prototype.getLocalPath = function(sFile) {
         sFile = sFile !== undefined ? sFile : '';
-        
+
         return path.join(KnoxedUp.sPath, this.oConfig.bucket, sFile);
     };
 
