@@ -1,4 +1,5 @@
     var fs          = require('fs');
+    var mime        = require('mime');
     var path        = require('path');
     var util        = require('util');
     var Knox        = require('knox');
