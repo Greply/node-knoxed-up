@@ -290,6 +290,13 @@
         return emitter;
     };
 
+    /*
+        Keeping headFile for backwards compatibility with knox
+    */
+    KnoxedUp.prototype.headFile = function (sFilename, oHeaders, fCallback) {
+        return this._head(sFilename, oHeaders, fCallback);
+    };
+
     KnoxedUp.prototype._setSizeAndHashHeaders = function (sFile, oHeaders, fCallback) {
         syslog.debug({action: 'KnoxedUp._setSizeAndHashHeaders', file: sFile, headers: oHeaders});
         async.parallel({
