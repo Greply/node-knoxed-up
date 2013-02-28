@@ -175,7 +175,7 @@
     };
 
     KnoxedUp.prototype._delete = function (sFilename, oHeaders, fCallback) {
-        return this._command('del', sFilename, 'utf-8',oHeaders, fCallback);
+        return this._command('del', sFilename, 'utf-8', oHeaders, fCallback);
     };
 
     KnoxedUp.prototype.getFile = function (sFilename, sToFile, sType, fCallback) {
@@ -294,6 +294,11 @@
         Keeping headFile for backwards compatibility with knox
     */
     KnoxedUp.prototype.headFile = function (sFilename, oHeaders, fCallback) {
+        if (typeof oHeaders == 'function') {
+            fCallback = oHeaders;
+            oHeaders = {};
+        }
+
         return this._head(sFilename, oHeaders, fCallback);
     };
 
